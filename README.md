@@ -1,13 +1,11 @@
 # 🤖 SMC Trading Bot v4
 
 Bot trading otomatis berbasis **Smart Money Concepts (SMC)** untuk Bybit Futures (USDT Perpetual).  
-Deploy di [Railway](https://railway.app) — tinggal isi API key, langsung jalan.
+Deploy di [Railway](https://railway.app) — isi API key, langsung jalan.
 
 ---
 
 ## 📐 Strategi
-
-Bot mengikuti alur SMC multi-timeframe secara otomatis:
 
 ```
 BOS H1 → EMA50 Filter → FVG Touch → IDM M5 → BOS/Sweep M5 → MSS → Entry
@@ -24,144 +22,146 @@ BOS H1 → EMA50 Filter → FVG Touch → IDM M5 → BOS/Sweep M5 → MSS → En
 | **Entry** | Breaker Block (prioritas) atau FVG fallback |
 
 **Risk Management:**
-- Risk per trade: **1% dari balance** (compound — naik/turun mengikuti balance)
+- Risk per trade: **1% dari balance** (compound — tiap trade risk ikut balance live saat itu)
 - TP: **3R** (3× jarak SL dari entry)
 - Leverage: otomatis sesuai limit coin, maks 10×
 - SL: ujung candle MSS atau Breaker Block
 
 **Pembatalan Setup (CHOCH):**
-- BOS Long → harga tembus swing low referensi → setup batal, struktur berganti Short
-- BOS Short → harga tembus swing high referensi → setup batal, struktur berganti Long
-- Jika harga ke swing high baru tanpa sentuh FVG → BOS tetap valid, tunggu pullback ke FVG terbaru
+- BOS Long → harga tutup di bawah swing low referensi → setup batal
+- BOS Short → harga tutup di atas swing high referensi → setup batal
 
 ---
 
 ## 📊 Hasil Backtest — Full Year 2025
 
-> Modal $15 | Risk 1% compound | TP 3R | ATR Filter Adaptif  
-> Awal: risk $0.15/trade → akhir tahun: risk ~$2.41/trade
+> Modal $10 | Risk 1%/trade compound | TP 3R | ATR Filter Adaptif  
+> **20 Coin | Data Bybit Perpetual USDT | M5 + H1 | Jan–Des 2025**
 
-**9 Coin | Full Year Jan–Des 2025**
+### Per Coin
 
-| Coin | Trade | W | L | WR% | PnL ($) | ROI% | PF | MDD% |
-|------|------:|--:|--:|----:|--------:|-----:|---:|-----:|
-| FARTCOINUSDT | 36 | 27 | 9 | 75% | +$69.38 | +462.6% | 12.14 | 4.7% |
-| TAOUSDT | 23 | 16 | 7 | 70% | +$40.58 | +270.5% | 9.50 | 7.3% |
-| 1000BONKUSDT | 24 | 15 | 9 | 62% | +$27.65 | +184.4% | 3.80 | 12.9% |
-| XVGUSDT | 13 | 9 | 4 | 69% | +$25.72 | +171.5% | 7.81 | 13.6% |
-| BELUSDT | 11 | 8 | 3 | 73% | +$19.97 | +133.1% | 7.19 | 7.4% |
-| USUALUSDT | 23 | 11 | 12 | 48% | +$16.29 | +108.6% | 2.62 | 12.8% |
-| 1000PEPEUSDT | 20 | 11 | 9 | 55% | +$15.67 | +104.4% | 2.61 | 14.5% |
-| DOGEUSDT | 13 | 6 | 7 | 46% | +$8.14 | +54.3% | 1.98 | 25.3% |
-| 1000FLOKIUSDT | 24 | 11 | 13 | 46% | +$2.54 | +17.0% | 1.17 | 30.1% |
-| **TOTAL** | **187** | **114** | **73** | **61%** | **+$225.96** | **+1506.4%** | **4.17** | — |
+| Coin | Trade | W | L | WR% | PnL ($) | ROI% | MaxDD% | PF | ATR P25 |
+|------|------:|--:|--:|----:|--------:|-----:|-------:|---:|--------:|
+| FARTCOINUSDT | 36 | 27 | 9 | 75% | +$9.53 | +95.3% | 2.2% | 7.88 | 0.0056 |
+| PENGUUSDT | 30 | 23 | 7 | 77% | +$7.56 | +75.6% | 3.5% | 6.96 | 0.0040 |
+| EIGENUSDT | 28 | 20 | 8 | 71% | +$5.84 | +58.4% | 2.3% | 6.02 | 0.0037 |
+| ONDOUSDT | 18 | 16 | 2 | 89% | +$5.30 | +53.0% | 2.3% | 16.29 | 0.0027 |
+| VIRTUALUSDT | 26 | 18 | 8 | 69% | +$5.12 | +51.2% | 2.3% | 5.19 | 0.0040 |
+| TAOUSDT | 23 | 16 | 7 | 70% | +$4.37 | +43.7% | 2.4% | 5.68 | 0.0032 |
+| WLDUSDT | 20 | 15 | 5 | 75% | +$4.28 | +42.8% | 2.3% | 7.60 | 0.0032 |
+| LINKUSDT | 19 | 14 | 5 | 74% | +$3.91 | +39.1% | 3.5% | 6.88 | 0.0025 |
+| 1000BONKUSDT | 24 | 15 | 9 | 62% | +$3.69 | +36.9% | 3.3% | 3.97 | 0.0035 |
+| BERAUSDT | 24 | 15 | 9 | 62% | +$3.67 | +36.7% | 4.5% | 4.09 | 0.0032 |
+| PNUTUSDT | 22 | 14 | 8 | 64% | +$3.48 | +34.8% | 3.4% | 4.22 | 0.0036 |
+| JUPUSDT | 19 | 12 | 7 | 63% | +$2.89 | +28.9% | 3.5% | 3.87 | 0.0030 |
+| SUIUSDT | 15 | 11 | 4 | 73% | +$2.88 | +28.8% | 2.4% | 6.19 | 0.0029 |
+| WIFUSDT | 28 | 15 | 13 | 54% | +$3.09 | +30.9% | 3.5% | 2.76 | 0.0038 |
+| XVGUSDT | 14 | 10 | 4 | 71% | +$2.66 | +26.6% | 2.2% | 6.13 | 0.0030 |
+| ORCAUSDT | 15 | 10 | 5 | 67% | +$2.48 | +24.8% | 2.1% | 4.65 | 0.0024 |
+| BELUSDT | 12 | 9 | 3 | 75% | +$2.39 | +23.9% | 1.2% | 6.92 | 0.0024 |
+| 1000PEPEUSDT | 20 | 11 | 9 | 55% | +$2.21 | +22.1% | 4.5% | 2.96 | 0.0031 |
+| USUALUSDT | 24 | 12 | 12 | 50% | +$2.14 | +21.4% | 3.5% | 2.40 | 0.0034 |
+| AVAXUSDT | 12 | 7 | 5 | 58% | +$1.45 | +14.5% | 3.4% | 3.34 | 0.0025 |
+| **TOTAL** | **429** | **290** | **139** | **68%** | **+$78.94** | **+789%** | — | **4.81** | — |
+
+**$10.00 → $88.94 dalam setahun (+789% ROI)**
+
+> _PnL per coin = compound masing-masing dari $10 awal. Di akun live (1 pot bersama),  
+> efek compound cross-coin membuat pertumbuhan lebih tinggi seiring balance tumbuh._
 
 ### Statistik Gabungan
 
 | Metrik | Nilai |
 |--------|------:|
-| Modal Awal | $15.00 |
-| Final Balance | **$240.96** |
-| Total Trade | 187 |
-| Win Rate | **61.0%** |
-| Total PnL | **+$225.96** |
-| ROI Setahun | **+1506.4%** |
-| Avg Win / trade | +$2.61 |
-| Avg Loss / trade | −$0.98 |
-| Profit Factor | **4.17** |
-| Expectancy / trade | **+$1.21** |
-| Max Drawdown (portfolio) | **6.3%** |
-| Max Consecutive Loss | 5 |
+| Modal Awal | $10.00 |
+| Final Balance | **$88.94** |
+| Total Trade | 429 |
+| Win Rate | **67.6%** |
+| Total PnL | **+$78.94** |
+| ROI Setahun | **+789%** |
+| Profit Factor | **4.81** |
+| Max Drawdown (per coin) | maks 4.5% |
 
-### Pertumbuhan per Kuartal
+### Per Kuartal
 
-| Kuartal | Trade | WR% | PnL ($) | ROI Kuartal | Bal Awal | Bal Akhir | MDD% |
-|---------|------:|----:|--------:|:-----------:|:--------:|:---------:|-----:|
-| Q1 | 59 | 63% | +$20.11 | +134.1% | $15.00 | $35.11 | 5.2% |
-| Q2 | 50 | 54% | +$24.95 | +71.1% | $35.11 | $60.06 | 5.0% |
-| Q3 | 31 | 65% | +$44.94 | +74.8% | $60.06 | $105.00 | 4.2% |
-| Q4 | 47 | 64% | +$135.96 | +129.5% | $105.00 | $240.96 | 5.4% |
+| Kuartal | Trade | WR% | PnL ($) | Bal Awal | Bal Akhir |
+|---------|------:|----:|--------:|:--------:|:---------:|
+| Q1 | 143 | 69% | +$25.20 | $10.00 | $35.20 |
+| Q2 | 121 | 65% | +$20.73 | $35.20 | $55.93 |
+| Q3 | 87 | 63% | +$14.95 | $55.93 | $70.88 |
+| Q4 | 78 | 64% | +$18.06 | $70.88 | $88.94 |
 
-> Q4 paling eksplosif (+$135.96) karena balance sudah besar — efek compound bekerja penuh.
-
-### Long vs Short
-
-| Arah | Trade | WR% | PnL ($) |
-|------|------:|----:|--------:|
-| Long | 91 | 64.8% | +$119.76 |
-| Short | 96 | 57.3% | +$106.20 |
-
-### Equity Milestones
-
-| Target | Tercapai | Trade ke- |
-|-------:|:--------:|:---------:|
-| $20 | 27 Jan 2025 | #13 |
-| $25 | 12 Feb 2025 | #30 |
-| $30 | 25 Feb 2025 | #40 |
-| $40 | 8 Mei 2025 | #77 |
-| $50 | 6 Jun 2025 | #96 |
-| $75 | 24 Jul 2025 | #120 |
-| $100 | 30 Agt 2025 | #138 |
-| $240 | 31 Des 2025 | #187 |
-
-### Catatan Coin
-
-- **FARTCOINUSDT** — coin terbaik, 36 trade, WR 75%, PF 12.14. Volatilitas tinggi dan trending cocok dengan SMC.
-- **TAOUSDT & BELUSDT** — paling konsisten, MDD rendah, PF tinggi (7–9.5).
-- **DOGEUSDT, USUALUSDT & 1000FLOKIUSDT** — WR di bawah 50% tapi tetap profit karena Avg Win ≈ 2.3× Avg Loss.
-- **1000FLOKIUSDT** — ATR median 0.402%, threshold 0.30%. Q1 dan Q3 bagus (WR 67–60%), Q4 lemah karena crash −51.7%.
-- **ENAUSDT** — dikeluarkan: bearish 3 dari 4 kuartal, ATR tinggi justru choppy (bukan trending).
+> Balance per kuartal = akumulasi PnL semua coin (compound bertahap).  
+> Q4 merupakan kuartal dengan pertumbuhan absolut terkecil karena trade count lebih sedikit.
 
 ---
 
 ## 🔧 ATR Filter Adaptif
 
-Setiap coin punya threshold ATR minimum berbeda sesuai karakter volatilitasnya:
+Setiap coin punya threshold ATR minimum berbeda (P25 ATR historis = 75% waktu lolos filter):
 
-| Coin | Threshold | Median ATR | Lolos Filter |
-|------|:---------:|:----------:|:------------:|
-| FARTCOINUSDT | 0.56% | 0.78% | 75% waktu |
-| XVGUSDT | 0.30% | 0.42% | 75% waktu |
-| 1000PEPEUSDT | 0.31% | 0.41% | 75% waktu |
-| 1000FLOKIUSDT | 0.30% | 0.40% | 75% waktu |
-| DOGEUSDT | 0.24% | 0.33% | 75% waktu |
-| Lainnya (default) | 0.35% | — | — |
+| Coin | Threshold |
+|------|:---------:|
+| FARTCOINUSDT | 0.56% |
+| PENGUUSDT / VIRTUALUSDT | 0.40% |
+| WIFUSDT | 0.38% |
+| EIGENUSDT | 0.37% |
+| PNUTUSDT | 0.36% |
+| USUALUSDT | 0.34% |
+| 1000BONKUSDT | 0.35% |
+| BERAUSDT / TAOUSDT / WLDUSDT | 0.32% |
+| JUPUSDT | 0.30% |
+| XVGUSDT | 0.30% |
+| 1000PEPEUSDT | 0.31% |
+| SUIUSDT | 0.29% |
+| ONDOUSDT | 0.27% |
+| LINKUSDT / AVAXUSDT | 0.25% |
+| BELUSDT / ORCAUSDT | 0.24% |
 
-Filter ini mencegah entry saat market sideways/momentum lemah. Threshold ditetapkan di P25 ATR historis masing-masing coin.
+---
+
+## ⚙️ Daftar Coin (20 coin aktif)
+
+```python
+SYMBOLS = [
+    'XVGUSDT', 'BELUSDT', 'TAOUSDT', '1000BONKUSDT', 'BERAUSDT',
+    'USUALUSDT',
+    'FARTCOINUSDT', '1000PEPEUSDT',
+    'WIFUSDT', 'PENGUUSDT', 'PNUTUSDT',
+    'SUIUSDT', 'AVAXUSDT', 'ONDOUSDT', 'JUPUSDT', 'EIGENUSDT',
+    'LINKUSDT',
+    'WLDUSDT', 'VIRTUALUSDT', 'ORCAUSDT',
+]
+```
+
+### Coin yang Tidak Dimasukkan
+
+| Coin | Alasan |
+|------|--------|
+| DOGEUSDT | WR 46%, PF 2.02 — profit tapi weak |
+| 1000FLOKIUSDT | WR 45.8%, PF 1.92 — borderline |
+| ENAUSDT | Bearish 3/4 kuartal, ATR tinggi tapi choppy |
+| INJUSDT | WR 40.7%, PF 1.62 |
+| ICPUSDT | Hanya 9 trade/tahun |
+| ARBUSDT | WR 40%, PF 1.57 |
+| TONUSDT | PF 0.82 (losing) |
+| ADAUSDT | 9 trade/tahun |
+| STORJUSDT | 5 trade/tahun |
+| NEARUSDT | WR 44% |
 
 ---
 
 ## 🚀 Deploy ke Railway
 
-### 1. Clone repo
-
-```bash
-git clone https://github.com/username/bot-smc.git
-cd bot-smc
-```
-
-### 2. Buat project di Railway
-
-1. [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo**
-2. Pilih repo ini
-
-### 3. Set Environment Variables
+### Set Environment Variables
 
 | Variable | Wajib | Keterangan |
 |----------|:-----:|-----------|
-| `API_KEY` | ✅ | Bybit API Key |
+| `API_KEY` | ✅ | Bybit API Key (permission: Trade + Read) |
 | `API_SECRET` | ✅ | Bybit API Secret |
-| `TESTNET` | ❌ | `true` untuk Testnet, default `false` |
+| `TESTNET` | ❌ | `true` untuk testnet, default `false` |
 
-> ⚠️ API Key Bybit harus punya permission: **Trade** dan **Read**
-
-### 4. Deploy
-
-Railway otomatis deploy saat push ke GitHub. Bot berjalan sebagai **worker**.
-
----
-
-## 📡 Monitoring Log
+### Monitoring Log
 
 ```
 https://<nama-project>.up.railway.app/logs
@@ -169,29 +169,15 @@ https://<nama-project>.up.railway.app/logs
 
 ---
 
-## ⚙️ Daftar Coin
-
-```python
-SYMBOLS = [
-    'XVGUSDT', 'BELUSDT', 'TAOUSDT', '1000BONKUSDT', 'BERAUSDT',
-    'DOGEUSDT', 'USUALUSDT',
-    'FARTCOINUSDT', '1000PEPEUSDT', '1000FLOKIUSDT',
-]
-```
-
----
-
 ## 📦 Dependencies
 
 ```
-pandas
-numpy
-pybit
+pandas>=2.0
+numpy>=1.24
+pybit>=5.0
 ```
 
 ---
 
-## ⚠️ Disclaimer
-
-Bot ini untuk keperluan pribadi. Trading crypto mengandung risiko tinggi.  
-Hasil backtest tidak menjamin performa di masa depan.
+> ⚠️ **Disclaimer**: Bot ini untuk keperluan pribadi. Trading crypto mengandung risiko tinggi.  
+> Hasil backtest tidak menjamin performa di masa depan.

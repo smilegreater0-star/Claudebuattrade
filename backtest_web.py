@@ -289,7 +289,7 @@ def _calc_quarters_compound(replayed: list) -> dict:
 
 # ── Main runner (background thread) ──────────────────────────────────────
 def _run():
-    global _phase, _results, _quarter_stats, _all_trades
+    global _phase, _results, _quarter_stats, _all_trades, _compound_final_bal
 
     _log_msg("=" * 62)
     _log_msg(f"BACKTEST SEMUA COIN BOT LIVE | Full Year 2025 | Modal ${INITIAL_BALANCE:.0f} | Risk 1%")
