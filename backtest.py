@@ -143,7 +143,7 @@ def load_m5(symbol, fnames):
         rows.extend(_parse_one_file(path))
     df = pd.DataFrame(rows)
     df = df.drop_duplicates(subset='ts').sort_values('ts').reset_index(drop=True)
-    df['ts_ms'] = (df['ts'].astype(np.int64) // 10**6).astype(int)
+    df['ts_ms'] = df['ts'].astype('datetime64[s]').astype(np.int64)
     return df
 
 

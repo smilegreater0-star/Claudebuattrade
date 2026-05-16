@@ -96,8 +96,7 @@ def fetch_bybit_m5(symbol: str) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
     df = df.drop_duplicates(subset='ts').sort_values('ts').reset_index(drop=True)
-    # Sama persis dengan formula di load_m5()
-    df['ts_ms'] = (df['ts'].astype(np.int64) // 10**6).astype(int)
+    df['ts_ms'] = df['ts'].astype('datetime64[s]').astype(np.int64)
 
     _log_msg(f"   {len(df):,} candle dari {n_call} API call")
     return df
