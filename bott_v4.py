@@ -846,10 +846,8 @@ def replay_h1(coin, df_h1):
         sh_above = [s for s in sh_h1 if s['val'] > swing_val]
         choch_r  = sh_above[-1]['val'] if sh_above else None
     choch_r_s    = f"{choch_r:.6g}" if choch_r else "—"
-    lanjut_batal = max(g['top'] for g in gaps) if stype == "Long" else min(g['bottom'] for g in gaps)
     print(f"\n📊 {coin}: BOS {stype} | Swing: {swing_val:.6g} | Phase: {phase}")
     print(f"   ⛔ CHOCH batal     : {choch_r_s}  ({'tutup < ' if stype=='Long' else 'tutup > '}{choch_r_s})")
-    print(f"   🚀 Lanjut H1 batal : {lanjut_batal:.6g}  ({'di atas FVG tertinggi' if stype=='Long' else 'di bawah FVG terendah'} → no pullback entry)")
     for gi, g in enumerate(gaps):
         marker = "◀" if gi == fvg_idx else " "
         print(f"   {marker} FVG {gi+1}: bottom:{g['bottom']:.6g}  top:{g['top']:.6g}")
@@ -1010,7 +1008,15 @@ def run_bot():
                             pending[coin]['fvg_idx'] += 1; continue
 
                         if candle_touches_fvg(closed_h1, active_fvg, stype):
+                            bos_ts_ref   = setup.get('bos_ts', 0)
+                            df_after_bos = df_h1_live[df_h1_live['ts'] > bos_ts_ref].iloc[:-1]
+                            if not df_after_bos.empty:
+                                lanjut_level = df_after_bos['low'].min() if stype == "Short" else df_after_bos['high'].max()
+                                lanjut_str   = f"{lanjut_level:.6g}"
+                            else:
+                                lanjut_str   = "—"
                             print(f"✅ {coin}: FVG {fvg_idx+1} disentuh. Masuk M5.")
+                            print(f"   🚀 Lanjut H1 batal : {lanjut_str}  ({'close < ' if stype == 'Short' else 'close > '}{lanjut_str} → konfirmasi lanjut {stype})")
                             pending[coin]['phase']        = "WAIT_IDM_TOUCH"
                             pending[coin]['fvg_touch_ts'] = closed_h1['ts']
                         else:
@@ -1356,11 +1362,9 @@ def run_bot():
                     'idm_list': [], 'idm_touched_val': None,
                 }
                 choch_str    = f"{choch_level:.6g}" if choch_level else "—"
-                lanjut_batal = max(g['top'] for g in gaps) if stype == "Long" else min(g['bottom'] for g in gaps)
                 print(f"\n📊 {coin} | Swing: {swing_val:.6g} | C: {curr_h1['close']:.6g}")
                 print(f"🎯 {coin}: BOS {stype} | {len(gaps)} FVG")
                 print(f"   ⛔ CHOCH batal     : {choch_str}  ({'tutup < ' if stype=='Long' else 'tutup > '}{choch_str})")
-                print(f"   🚀 Lanjut H1 batal : {lanjut_batal:.6g}  ({'di atas FVG tertinggi' if stype=='Long' else 'di bawah FVG terendah'} → no pullback entry)")
                 for i, g in enumerate(gaps):
                     print(f"   FVG {i+1}: bottom:{g['bottom']:.6g}  top:{g['top']:.6g}")
 
