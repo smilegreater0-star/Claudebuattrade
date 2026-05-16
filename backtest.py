@@ -99,7 +99,7 @@ ATR_THRESHOLD = {
     'BERAUSDT'      : 0.0035,
     # Coin baru — diisi otomatis oleh backtest_web.py saat runtime
     'WIFUSDT'       : 0.0035,
-    '1000SHIBUSDT'  : 0.0035,
+    'SHIB1000USDT'  : 0.0035,
     'PENGUUSDT'     : 0.0035,
     'PNUTUSDT'      : 0.0035,
 }
