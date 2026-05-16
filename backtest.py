@@ -531,36 +531,29 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
 
         closed_h1 = df_h1.iloc[-2]
         curr_h1   = df_h1.iloc[-1]
-        is_long  = closed_h1['close'] > sh_h1[-1]['val']
-        is_short = closed_h1['close'] < sl_h1[-1]['val']
-        if not (is_long or is_short):
+
+        # 3-kandidat swing — Short menang jika keduanya fire (sama dengan bott_v4.py)
+        is_long = False; is_short = False; swing_val = None; bos_idx = None
+        for sh in sh_h1[-3:]:
+            if closed_h1['close'] > sh['val']:
+                is_long   = True
+                swing_val = sh['val']
+                bos_idx   = sl_h1[-1]['idx'] if sl_h1 else sh['idx']
+        for sl in sl_h1[-3:]:
+            if closed_h1['close'] < sl['val']:
+                is_short  = True
+                swing_val = sl['val']
+                bos_idx   = sh_h1[-1]['idx'] if sh_h1 else sl['idx']
+
+        if not (is_long or is_short) or swing_val is None:
             i += 12; continue
 
-        stype = "Long" if is_long else "Short"
+        stype = "Short" if is_short else "Long"
 
         # EMA50 filter
         ema50 = calc_ema(df_h1['close'], 50).iloc[-1]
         if stype == "Long"  and curr_h1['close'] < ema50: i += 12; continue
         if stype == "Short" and curr_h1['close'] > ema50: i += 12; continue
-
-        # Coba last 3 swing kandidat agar BOS tidak terlalu ketat
-        swing_candidates = []
-        if is_long:
-            for sh in sh_h1[-3:]:
-                if closed_h1['close'] > sh['val']:
-                    bi = sl_h1[-1]['idx'] if sl_h1 else sh['idx']
-                    swing_candidates.append((sh['val'], bi))
-        else:
-            for sl in sl_h1[-3:]:
-                if closed_h1['close'] < sl['val']:
-                    bi = sh_h1[-1]['idx'] if sh_h1 else sl['idx']
-                    swing_candidates.append((sl['val'], bi))
-
-        if not swing_candidates:
-            i += 12; continue
-
-        # Pilih swing paling dekat (terbaru) yang valid
-        swing_val, bos_idx = swing_candidates[-1]
 
         bos_key = (stype, round(swing_val, 8))
         if bos_key == last_bos_key:

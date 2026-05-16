@@ -145,11 +145,18 @@ def _diagnose(symbol: str, df: pd.DataFrame, atr_thresh: float):
         sh_h1, sl_h1 = find_last_swing_bos(df_h1)
         if not sh_h1 or not sl_h1: i += 12; continue
         closed_h1 = df_h1.iloc[-2]; curr_h1 = df_h1.iloc[-1]
-        is_long  = closed_h1['close'] > sh_h1[-1]['val']
-        is_short = closed_h1['close'] < sl_h1[-1]['val']
-        if not (is_long or is_short): i += 12; continue
-        stype = 'Long' if is_long else 'Short'
-        swing_val = sh_h1[-1]['val'] if is_long else sl_h1[-1]['val']
+        # 3-kandidat swing — Short menang jika keduanya fire (sama dengan bott_v4.py)
+        is_long = False; is_short = False; swing_val = None; bos_idx = None
+        for sh in sh_h1[-3:]:
+            if closed_h1['close'] > sh['val']:
+                is_long = True; swing_val = sh['val']
+                bos_idx = sl_h1[-1]['idx'] if sl_h1 else sh['idx']
+        for sl in sl_h1[-3:]:
+            if closed_h1['close'] < sl['val']:
+                is_short = True; swing_val = sl['val']
+                bos_idx = sh_h1[-1]['idx'] if sh_h1 else sl['idx']
+        if not (is_long or is_short) or swing_val is None: i += 12; continue
+        stype = 'Short' if is_short else 'Long'
         bos_key = (stype, round(swing_val, 8))
         if bos_key == last_bos_key: i += 12; continue
         last_bos_key = bos_key; c_bos += 1
@@ -157,7 +164,6 @@ def _diagnose(symbol: str, df: pd.DataFrame, atr_thresh: float):
         if stype == 'Long'  and curr_h1['close'] < ema50: i += 12; continue
         if stype == 'Short' and curr_h1['close'] > ema50: i += 12; continue
         c_ema += 1
-        bos_idx = sl_h1[-1]['idx'] if is_long else sh_h1[-1]['idx']
         gaps = get_internal_gaps(df_h1, stype, bos_idx)
         if not gaps: i += 12; continue
         c_fvg += 1
