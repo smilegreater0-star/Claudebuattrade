@@ -83,6 +83,27 @@ FILES = {
 
 UPLOAD_DIR = "/mnt/user-data/uploads"
 
+# ATR filter threshold per coin (P25 ATR historis)
+# backtest_web.py dapat mengupdate dict ini sebelum memanggil backtest_coin()
+ATR_THRESHOLD = {
+    'FARTCOINUSDT'  : 0.0056,   # P25=0.556%
+    'XVGUSDT'       : 0.0030,   # P25=0.303%
+    '1000PEPEUSDT'  : 0.0031,   # P25=0.306%
+    'DOGEUSDT'      : 0.0024,   # P25=0.242%
+    '1000FLOKIUSDT' : 0.0030,   # P25=0.296%
+    '1000BONKUSDT'  : 0.0035,   # P25=0.348%
+    'BELUSDT'       : 0.0024,   # P25=0.238%
+    'TAOUSDT'       : 0.0032,   # P25=0.316%
+    'USUALUSDT'     : 0.0034,   # P25=0.340%
+    'ENAUSDT'       : 0.0035,
+    'BERAUSDT'      : 0.0035,
+    # Coin baru — diisi otomatis oleh backtest_web.py saat runtime
+    'WIFUSDT'       : 0.0035,
+    '1000SHIBUSDT'  : 0.0035,
+    'PENGUUSDT'     : 0.0035,
+    'PNUTUSDT'      : 0.0035,
+}
+
 def _parse_one_file(path):
     # Coba path asli dulu, lalu cek uploads
     if not __import__('os').path.exists(path):
@@ -646,19 +667,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
         if avg_vol > 0 and float(mss_candle['vol']) / avg_vol < 0.25:
             i += 12; continue
 
-        # Filter ATR adaptif per coin — threshold relatif terhadap volatilitas historis
-        ATR_THRESHOLD = {
-            'FARTCOINUSDT'  : 0.0056,   # P25=0.556% | skip 25.6%
-            'XVGUSDT'       : 0.0030,   # P25=0.303% | skip 24.3%
-            '1000PEPEUSDT'  : 0.0031,   # P25=0.306% | skip 26.0%
-            'DOGEUSDT'      : 0.0024,   # P25=0.242% | skip 24.4%
-            '1000FLOKIUSDT' : 0.0030,   # P25=0.296% | skip 26.0%
-            '1000BONKUSDT'  : 0.0035,   # P25=0.348% | skip 25.3%
-            'BELUSDT'       : 0.0024,   # P25=0.238% | skip 24.4% (turun dari 0.35%)
-            'TAOUSDT'       : 0.0032,   # P25=0.316% | skip 24.0% (turun dari 0.35%)
-            'USUALUSDT'     : 0.0034,   # P25=0.340% | skip 25.0% (turun dari 0.35%)
-            'ENAUSDT'       : 0.0035,
-        }
+        # Filter ATR adaptif — gunakan dict module-level ATR_THRESHOLD
         atr_thresh = ATR_THRESHOLD.get(symbol, 0.0035)
         atr_window = df_m5_full.iloc[max(0, mss_m5_idx - 14): mss_m5_idx]
         if len(atr_window) >= 5:
