@@ -36,51 +36,54 @@ BOS H1 → EMA50 Filter → FVG Touch → IDM M5 → BOS/Sweep M5 → MSS → En
 ## 📊 Hasil Backtest — Full Year 2025
 
 > Modal $10 | Risk 1%/trade compound | TP 3R | ATR Filter Adaptif  
-> **18 Coin Aktif | Data Bybit Perpetual USDT | M5 + H1 | Jan–Des 2025**
+> **20 Coin | Data Bybit Perpetual USDT | M5 + H1 | Jan–Des 2025**
 
 ### Per Coin
 
-| Coin | Trade | W | L | WR% | PnL ($) | ROI% | MaxDD% | PF | ATR P25 |
-|------|------:|--:|--:|----:|--------:|-----:|-------:|---:|--------:|
-| FARTCOINUSDT | 50 | 34 | 16 | 68% | +$11.96 | +119.6% | 4.5% | 5.19 | 0.0056 |
-| PENGUUSDT | 40 | 31 | 9 | 78% | +$11.46 | +114.6% | 4.6% | 7.19 | 0.0040 |
-| EIGENUSDT | 38 | 25 | 13 | 66% | +$7.24 | +72.4% | 4.6% | 4.96 | 0.0037 |
-| VIRTUALUSDT | 25 | 19 | 6 | 76% | +$5.99 | +59.9% | 2.3% | 7.45 | 0.0040 |
-| BERAUSDT | 31 | 21 | 10 | 68% | +$5.92 | +59.2% | 3.5% | 5.10 | 0.0032 |
-| ONDOUSDT | 22 | 17 | 5 | 77% | +$5.10 | +51.0% | 3.4% | 7.63 | 0.0027 |
-| BELUSDT | 21 | 16 | 5 | 76% | +$4.67 | +46.7% | 2.4% | 7.18 | 0.0024 |
-| 1000BONKUSDT | 28 | 18 | 10 | 64% | +$4.78 | +47.8% | 3.3% | 4.37 | 0.0035 |
-| SUIUSDT | 22 | 16 | 6 | 73% | +$4.55 | +45.5% | 2.4% | 5.69 | 0.0029 |
-| PNUTUSDT | 31 | 18 | 13 | 58% | +$4.21 | +42.1% | 3.4% | 3.29 | 0.0036 |
-| USUALUSDT | 33 | 18 | 15 | 55% | +$3.87 | +38.7% | 6.7% | 2.84 | 0.0034 |
-| TAOUSDT | 23 | 15 | 8 | 65% | +$3.81 | +38.1% | 4.5% | 4.73 | 0.0032 |
-| 1000PEPEUSDT | 21 | 14 | 7 | 67% | +$3.61 | +36.1% | 2.3% | 4.75 | 0.0031 |
-| WIFUSDT | 28 | 16 | 12 | 57% | +$3.60 | +36.0% | 4.6% | 3.16 | 0.0038 |
-| LINKUSDT | 25 | 15 | 10 | 60% | +$3.47 | +34.7% | 4.7% | 3.62 | 0.0025 |
-| ORCAUSDT | 21 | 13 | 8 | 62% | +$3.10 | +31.0% | 2.2% | 3.81 | 0.0024 |
-| AVAXUSDT | 18 | 12 | 6 | 67% | +$3.01 | +30.1% | 2.3% | 4.80 | 0.0025 |
-| XVGUSDT | 24 | 13 | 11 | 54% | +$2.62 | +26.2% | 4.7% | 2.81 | 0.0030 |
-| **TOTAL** | **501** | **331** | **170** | **66%** | **+$92.97** | **+930%** | — | **5.84** | — |
+| Coin | Trade | W | L | WR% | PnL Compound | MaxDD% | PF | ATR P25 |
+|------|------:|--:|--:|----:|-------------:|-------:|---:|--------:|
+| EIGENUSDT | 38 | 25 | 13 | 65.8% | +$7,114.89 | 4.6% | 4.96 | 0.0037 |
+| FARTCOINUSDT | 50 | 34 | 16 | 68.0% | +$5,788.46 | 4.5% | 5.19 | 0.0056 |
+| BERAUSDT | 31 | 21 | 10 | 67.7% | +$5,568.41 | 3.5% | 5.10 | 0.0032 |
+| TAOUSDT | 23 | 15 | 8 | 65.2% | +$5,044.22 | 4.5% | 4.73 | 0.0032 |
+| AVAXUSDT | 18 | 12 | 6 | 66.7% | +$4,711.14 | 2.3% | 4.80 | 0.0025 |
+| PENGUUSDT | 40 | 31 | 9 | 77.5% | +$4,392.84 | 4.6% | 7.19 | 0.0040 |
+| USUALUSDT | 33 | 18 | 15 | 54.5% | +$3,919.46 | 6.7% | 2.84 | 0.0034 |
+| XVGUSDT | 24 | 13 | 11 | 54.2% | +$3,876.85 | 4.7% | 2.81 | 0.0030 |
+| LINKUSDT | 25 | 15 | 10 | 60.0% | +$2,921.56 | 4.7% | 3.62 | 0.0025 |
+| WLDUSDT* | 27 | 13 | 14 | 48.1% | +$2,200.59 | 7.7% | 2.34 | 0.0032 |
+| BELUSDT | 21 | 16 | 5 | 76.2% | +$2,168.50 | 2.4% | 7.18 | 0.0024 |
+| SUIUSDT | 22 | 16 | 6 | 72.7% | +$1,652.58 | 2.4% | 5.69 | 0.0029 |
+| WIFUSDT | 28 | 16 | 12 | 57.1% | +$1,458.44 | 4.6% | 3.16 | 0.0038 |
+| ONDOUSDT | 22 | 17 | 5 | 77.3% | +$1,205.12 | 3.4% | 7.63 | 0.0027 |
+| ORCAUSDT | 21 | 13 | 8 | 61.9% | +$1,019.71 | 2.2% | 3.81 | 0.0024 |
+| 1000PEPEUSDT | 21 | 14 | 7 | 66.7% | +$982.97 | 2.3% | 4.75 | 0.0031 |
+| 1000BONKUSDT | 28 | 18 | 10 | 64.3% | +$879.48 | 3.3% | 4.37 | 0.0035 |
+| VIRTUALUSDT | 25 | 19 | 6 | 76.0% | +$677.91 | 2.3% | 7.45 | 0.0040 |
+| PNUTUSDT | 31 | 18 | 13 | 58.1% | −$137.53 | 3.4% | 3.29 | 0.0036 |
+| JUPUSDT* | 31 | 15 | 16 | 48.4% | −$1,055.16 | 7.9% | 2.16 | 0.0030 |
+| **TOTAL** | **559** | **359** | **200** | **64.2%** | **+$54,390.46** | — | — | — |
 
-**$10.00 → $102.97 dalam setahun (+930% ROI)**
+**$10.00 → $54,400.46 dalam setahun (+543,905% ROI)**
 
-> _PnL per coin = compound masing-masing dari $10 awal. Di akun live (1 pot bersama),  
-> efek compound cross-coin membuat pertumbuhan jauh lebih tinggi seiring balance tumbuh._
+> \* JUPUSDT dan WLDUSDT dikeluarkan dari bot live setelah backtest ini (WR di bawah 50% / compound negatif).
+
+> _PnL Compound = kontribusi tiap coin ke 1 pot bersama, risk 1% dari balance live per trade.  
+> Ini sama persis dengan cara bot live bekerja: tiap trade, risk ikut balance Bybit saat itu._
 
 ### Statistik Gabungan
 
 | Metrik | Nilai |
 |--------|------:|
 | Modal Awal | $10.00 |
-| Final Balance | **$102.97** |
-| Total Trade | 501 |
-| Win Rate | **66.1%** |
-| Total PnL | **+$92.97** |
-| ROI Setahun | **+930%** |
-| Profit Factor | **5.84** |
-| Max Drawdown (per coin) | maks 6.7% |
+| Final Balance | **$54,400.46** |
+| Total Trade | 559 |
+| Win Rate | **64.2%** |
+| Total PnL | **+$54,390.46** |
+| ROI Setahun | **+543,905%** |
+| Max Drawdown (per coin) | maks 7.9% |
 
-### Per Kuartal (Compound 1 Pot Bersama)
+### Per Kuartal
 
 | Kuartal | Trade | WR% | PnL ($) | Bal Awal | Bal Akhir |
 |---------|------:|----:|--------:|:--------:|:---------:|
@@ -89,8 +92,7 @@ BOS H1 → EMA50 Filter → FVG Touch → IDM M5 → BOS/Sweep M5 → MSS → En
 | Q3 | 108 | 57% | +$5,711.02 | $1,944.74 | $7,655.76 |
 | Q4 | 132 | 63% | +$46,744.70 | $7,655.76 | $54,400.46 |
 
-> Balance per kuartal = semua trade diurutkan waktu, risk 1% dari balance berjalan.  
-> Ini cara kerja bot live yang sesungguhnya — tiap trade, risk ikut balance Bybit saat itu.
+> Balance per kuartal = semua trade diurutkan waktu, risk 1% dari balance berjalan.
 
 ---
 
@@ -136,7 +138,7 @@ SYMBOLS = [
 | Coin | Alasan |
 |------|--------|
 | JUPUSDT | WR 48.4%, PF 2.16, MaxDD 7.9% — compound negatif |
-| WLDUSDT | WR 48.1%, PF 2.34, MaxDD 7.7% — compound negatif |
+| WLDUSDT | WR 48.1%, PF 2.34, MaxDD 7.7% — WR di bawah 50% |
 | DOGEUSDT | WR 46%, PF 2.02 — profit tapi weak |
 | 1000FLOKIUSDT | WR 45.8%, PF 1.92 — borderline |
 | ENAUSDT | Bearish 3/4 kuartal, ATR tinggi tapi choppy |
