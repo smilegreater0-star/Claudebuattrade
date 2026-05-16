@@ -111,6 +111,13 @@ ATR_THRESHOLD = {
     'STORJUSDT'     : 0.0035,
     'LINKUSDT'      : 0.0025,   # P25=0.253%
     'NEARUSDT'      : 0.0035,
+    # Coin batch 4 — diisi otomatis oleh backtest_web.py saat runtime
+    'INJUSDT'       : 0.0035,
+    'WLDUSDT'       : 0.0035,
+    'VIRTUALUSDT'   : 0.0035,
+    'ORCAUSDT'      : 0.0035,
+    'ICPUSDT'       : 0.0035,
+    'ARBUSDT'       : 0.0035,
 }
 
 def _parse_one_file(path):
