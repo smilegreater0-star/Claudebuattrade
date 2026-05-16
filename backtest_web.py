@@ -1,6 +1,6 @@
 """
 backtest_web.py — Backtest coin baru via Bybit API (tanpa file lokal)
-Coins : WIFUSDT, SHIB1000USDT, PENGUUSDT, PNUTUSDT
+Coins : SUIUSDT, AVAXUSDT, ONDOUSDT, JUPUSDT, EIGENUSDT
 Period: Full Year 2025 (1 Jan – 31 Des)
 
 Deploy ke Railway:
@@ -19,7 +19,7 @@ import backtest as bt   # engine backtest dari backtest.py
 
 # ── Config ──────────────────────────────────────────────────────────────
 PORT   = int(os.environ.get('PORT', 8080))
-COINS  = ['WIFUSDT', 'SHIB1000USDT', 'PENGUUSDT', 'PNUTUSDT']
+COINS  = ['SUIUSDT', 'AVAXUSDT', 'ONDOUSDT', 'JUPUSDT', 'EIGENUSDT']
 
 # 2025-01-01 00:00:00 UTC → 2025-12-31 23:59:59 UTC (dalam ms)
 _START_MS = 1735689600000
@@ -498,7 +498,7 @@ def _render_html() -> bytes:
 <body>
   <h1>🤖 Backtest SMC Bot — Coin Baru</h1>
   <p>
-    Coins: <b>WIFUSDT · SHIB1000USDT · PENGUUSDT · PNUTUSDT</b> &nbsp;|&nbsp;
+    Coins: <b>SUIUSDT · AVAXUSDT · ONDOUSDT · JUPUSDT · EIGENUSDT</b> &nbsp;|&nbsp;
     Period: <b>2025-01-01 → 2025-12-31</b> &nbsp;|&nbsp;
     Status: {chip}
   </p>

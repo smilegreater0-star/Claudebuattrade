@@ -78,6 +78,7 @@ SYMBOLS = [
     'XVGUSDT', 'BELUSDT', 'TAOUSDT', '1000BONKUSDT', 'BERAUSDT',
     'DOGEUSDT', 'USUALUSDT',
     'FARTCOINUSDT', '1000PEPEUSDT', '1000FLOKIUSDT',
+    'WIFUSDT', 'PENGUUSDT', 'PNUTUSDT',
 ]
 
 
@@ -1173,10 +1174,13 @@ def run_bot():
                             'DOGEUSDT'      : 0.0024,   # P25=0.242%
                             '1000FLOKIUSDT' : 0.0030,   # P25=0.296%
                             '1000BONKUSDT'  : 0.0035,   # P25=0.348%
-                            'BELUSDT'       : 0.0024,   # P25=0.238% ← turun dari 0.35%
-                            'TAOUSDT'       : 0.0032,   # P25=0.316% ← turun dari 0.35%
-                            'USUALUSDT'     : 0.0034,   # P25=0.340% ← turun dari 0.35%
+                            'BELUSDT'       : 0.0024,   # P25=0.238%
+                            'TAOUSDT'       : 0.0032,   # P25=0.316%
+                            'USUALUSDT'     : 0.0034,   # P25=0.340%
                             'BERAUSDT'      : 0.0035,
+                            'WIFUSDT'       : 0.0038,   # P25=0.378%
+                            'PENGUUSDT'     : 0.0040,   # P25=0.397%
+                            'PNUTUSDT'      : 0.0036,   # P25=0.357%
                         }
                         atr_thresh = ATR_THRESHOLD.get(coin, 0.0035)
                         df_atr_m5  = get_data(coin, "5", limit=20)
