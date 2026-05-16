@@ -934,6 +934,19 @@ def run_bot():
                     pending[coin]['tp'] = 0
                     setup['tp']        = 0
 
+                    # ── CEK CHOCH DULU: pembalikan struktur → setup batal ──────
+                    # Cek sebelum print apapun agar tidak ada output spurious sebelum cancel.
+                    choch_level = setup.get('choch_level')
+                    if choch_level:
+                        if stype == "Long" and curr_h1['close'] < choch_level:
+                            print(f"🔄 {coin}: CHOCH — swing low {choch_level:.6f} ditembus. "
+                                  f"BOS Long batal, struktur berganti Short.")
+                            del pending[coin]; continue
+                        if stype == "Short" and curr_h1['close'] > choch_level:
+                            print(f"🔄 {coin}: CHOCH — swing high {choch_level:.6f} ditembus. "
+                                  f"BOS Short batal, struktur berganti Long.")
+                            del pending[coin]; continue
+
                     # Update fvg_idx: skip FVG yang sudah dilewati harga saat ini
                     if setup['phase'] == "WAIT_FVG_TOUCH":
                         curr_close = curr_h1['close']
@@ -967,20 +980,6 @@ def run_bot():
                             print(f"⏳ {coin}: Harga di atas semua FVG ({new_fvg_count} FVG tersedia). "
                                   f"BOS tetap valid — nunggu pullback ke FVG terbaru. "
                                   f"CHOCH level: {pending[coin].get('choch_level', '-')}")
-
-                    # ── CEK CHOCH: pembalikan struktur → setup batal ──────
-                    # Jika swing low referensi BOS Long ditembus → CHOCH (Long batal)
-                    # Jika swing high referensi BOS Short ditembus → CHOCH (Short batal)
-                    choch_level = setup.get('choch_level')
-                    if choch_level:
-                        if stype == "Long" and curr_h1['close'] < choch_level:
-                            print(f"🔄 {coin}: CHOCH — swing low {choch_level:.6f} ditembus. "
-                                  f"BOS Long batal, struktur berganti Short.")
-                            del pending[coin]; continue
-                        if stype == "Short" and curr_h1['close'] > choch_level:
-                            print(f"🔄 {coin}: CHOCH — swing high {choch_level:.6f} ditembus. "
-                                  f"BOS Short batal, struktur berganti Long.")
-                            del pending[coin]; continue
 
                     # Timeout 24 jam sejak FVG disentuh
                     if setup['phase'] != "WAIT_FVG_TOUCH":
@@ -1314,7 +1313,7 @@ def run_bot():
 
                 if not (is_long or is_short): continue
                 if swing_val is None or bos_idx is None: continue
-                stype = "Long" if is_long else "Short"
+                stype = "Short" if is_short else "Long"
 
                 # [v5] FIX #3: TREND FILTER EMA50 H1
                 ema50 = calc_ema(df_h1_live['close'], 50).iloc[-1]
