@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="id"><head><base href="https://claudebuattrade-production.up.railway.app/" />
+  <meta charset="utf-8" />
+  <title>Backtest All Coins — SMC Bot</title>
+  
+<style>
+*{box-sizing:border-box}
+body{font-family:'Courier New',monospace;background:#0d1117;color:#c9d1d9;
+     padding:24px 32px;max-width:1200px;margin:0 auto}
+h1{color:#58a6ff;font-size:20px;margin:0 0 6px}
+h2{color:#79c0ff;font-size:14px;margin:22px 0 8px;text-transform:uppercase;letter-spacing:.5px}
+p{margin:4px 0;font-size:13px}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px}
+th{background:#161b22;color:#58a6ff;padding:8px 12px;text-align:left;
+   border-bottom:2px solid #30363d;white-space:nowrap}
+td{padding:7px 12px;border-bottom:1px solid #21262d;white-space:nowrap}
+tr:hover td{background:#161b22}
+.g{color:#3fb950}.r{color:#f85149}.y{color:#e3b341}
+.log{background:#161b22;border:1px solid #30363d;border-radius:6px;
+     padding:14px 16px;max-height:500px;overflow-y:auto;
+     white-space:pre-wrap;font-size:11px;line-height:1.6}
+.chip{display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:bold}
+.chip-run{background:#1c3c5e;color:#58a6ff}
+.chip-done{background:#1a3d28;color:#3fb950}
+.note{background:#161b22;border-left:3px solid #58a6ff;padding:10px 14px;
+      border-radius:0 6px 6px 0;font-size:12px;margin:10px 0 0;line-height:1.6}
+a{color:#58a6ff}
+</style>
+
+  
+</head>
+<body>
+  <h1>🤖 Backtest SMC Bot — All Coins (Full Year 2025)</h1>
+  <p>
+    <b>18/18 coin selesai</b>  | 
+    Modal: <b>$10</b>  | 
+    Period: <b>2025-01-01 → 2025-12-31</b>  | 
+    Status: <span class="chip chip-done">✅ Selesai</span>
+  </p>
+  <p class="g">✅ Selesai! Compound: <b>$10.00 → $32144.34</b> (+$32134.34, +321343% ROI)  |  <a href="/readme">/readme</a> untuk export README.md</p>
+
+  <h2>Hasil Per Coin</h2>
+  
+        <table>
+          <tbody><tr>
+            <th>Coin</th><th>Trade</th><th>WR%</th>
+            <th>PnL Compound</th><th>MaxDD%</th><th>PF</th><th>ATR P25</th>
+          </tr>
+          <tr><td><b>XVGUSDT</b></td><td>24</td><td class="y">54.2%</td><td class="g">+$2244.74</td><td class="g">4.7%</td><td class="y">2.81</td><td class="g">0.0030</td></tr>
+<tr><td><b>BELUSDT</b></td><td>21</td><td class="g">76.2%</td><td class="g">+$1375.16</td><td class="g">2.4%</td><td class="g">7.18</td><td class="g">0.0024</td></tr>
+<tr><td><b>TAOUSDT</b></td><td>23</td><td class="g">65.2%</td><td class="g">+$2937.63</td><td class="g">4.5%</td><td class="g">4.73</td><td class="g">0.0032</td></tr>
+<tr><td><b>1000BONKUSDT</b></td><td>28</td><td class="g">64.3%</td><td class="g">+$644.72</td><td class="g">3.3%</td><td class="g">4.37</td><td class="g">0.0035</td></tr>
+<tr><td><b>BERAUSDT</b></td><td>31</td><td class="g">67.7%</td><td class="g">+$3356.16</td><td class="g">3.5%</td><td class="g">5.10</td><td class="g">0.0032</td></tr>
+<tr><td><b>USUALUSDT</b></td><td>33</td><td class="y">54.5%</td><td class="g">+$2306.61</td><td class="g">6.7%</td><td class="y">2.84</td><td class="g">0.0034</td></tr>
+<tr><td><b>FARTCOINUSDT</b></td><td>50</td><td class="g">68.0%</td><td class="g">+$3448.10</td><td class="g">4.5%</td><td class="g">5.19</td><td class="g">0.0056</td></tr>
+<tr><td><b>1000PEPEUSDT</b></td><td>21</td><td class="g">66.7%</td><td class="g">+$625.52</td><td class="g">2.3%</td><td class="g">4.75</td><td class="g">0.0031</td></tr>
+<tr><td><b>WIFUSDT</b></td><td>28</td><td class="g">57.1%</td><td class="g">+$901.59</td><td class="g">4.6%</td><td class="g">3.16</td><td class="g">0.0038</td></tr>
+<tr><td><b>PENGUUSDT</b></td><td>40</td><td class="g">77.5%</td><td class="g">+$2606.85</td><td class="g">4.6%</td><td class="g">7.19</td><td class="g">0.0040</td></tr>
+<tr><td><b>PNUTUSDT</b></td><td>31</td><td class="g">58.1%</td><td class="g">+$32.56</td><td class="g">3.4%</td><td class="g">3.29</td><td class="g">0.0036</td></tr>
+<tr><td><b>SUIUSDT</b></td><td>22</td><td class="g">72.7%</td><td class="g">+$1006.84</td><td class="g">2.4%</td><td class="g">5.69</td><td class="g">0.0029</td></tr>
+<tr><td><b>AVAXUSDT</b></td><td>18</td><td class="g">66.7%</td><td class="g">+$2802.83</td><td class="g">2.3%</td><td class="g">4.80</td><td class="g">0.0025</td></tr>
+<tr><td><b>ONDOUSDT</b></td><td>22</td><td class="g">77.3%</td><td class="g">+$763.48</td><td class="g">3.4%</td><td class="g">7.63</td><td class="g">0.0027</td></tr>
+<tr><td><b>EIGENUSDT</b></td><td>38</td><td class="g">65.8%</td><td class="g">+$4236.22</td><td class="g">4.6%</td><td class="g">4.96</td><td class="g">0.0037</td></tr>
+<tr><td><b>LINKUSDT</b></td><td>25</td><td class="g">60.0%</td><td class="g">+$1747.00</td><td class="g">4.7%</td><td class="g">3.62</td><td class="g">0.0025</td></tr>
+<tr><td><b>VIRTUALUSDT</b></td><td>25</td><td class="g">76.0%</td><td class="g">+$474.37</td><td class="g">2.3%</td><td class="g">7.45</td><td class="g">0.0040</td></tr>
+<tr><td><b>ORCAUSDT</b></td><td>21</td><td class="g">61.9%</td><td class="g">+$623.95</td><td class="g">2.2%</td><td class="g">3.81</td><td class="g">0.0024</td></tr>
+<tr style="border-top:2px solid #30363d;font-weight:bold"><td>TOTAL (18 coin)</td><td>501</td><td class="g">66.1%</td><td class="g">+$32134.34</td><td>—</td><td>—</td><td>—</td></tr>
+
+        </tbody></table>
+    
+
+  <h2>Per Kuartal (Agregat Semua Coin)</h2>
+        <table>
+          <tbody><tr><th>Kuartal</th><th>Trade</th><th>WR%</th><th>PnL</th>
+              <th>Bal Awal → Akhir</th></tr>
+          <tr><td><b>Q1</b></td><td>147</td><td class="g">68.0%</td><td class="g">+$109.83</td><td>$10.00 → $119.83</td></tr>
+<tr><td><b>Q2</b></td><td>141</td><td class="g">70.2%</td><td class="g">+$1346.19</td><td>$119.83 → $1466.02</td></tr>
+<tr><td><b>Q3</b></td><td>99</td><td class="g">56.6%</td><td class="g">+$3515.23</td><td>$1466.02 → $4981.25</td></tr>
+<tr><td><b>Q4</b></td><td>114</td><td class="g">66.7%</td><td class="g">+$27163.09</td><td>$4981.25 → $32144.34</td></tr>
+
+        </tbody></table>
+    
+
+  <div class="note">
+    💡 <b>PnL Compound</b> = kontribusi tiap coin ke 1 pot bersama (risk 1% dari balance live per trade).
+    <br /><b>Per Kuartal</b> = semua coin diurutkan waktu, balance bergerak bersama.
+    <br />Ini sama persis dengan cara bot live bekerja: tiap trade, risk ikut balance Bybit saat itu.
+  </div>
+
+  <h2>Log Progress</h2>
+  <div class="log" id="log">[23:44:49] ==============================================================
+[23:44:49] BACKTEST SEMUA COIN BOT LIVE | Full Year 2025 | Modal $10 | Risk 1%
+[23:44:49] 18 Coins: XVGUSDT, BELUSDT, TAOUSDT, 1000BONKUSDT, BERAUSDT, USUALUSDT, FARTCOINUSDT, 1000PEPEUSDT, WIFUSDT, PENGUUSDT, PNUTUSDT, SUIUSDT, AVAXUSDT, ONDOUSDT, EIGENUSDT, LINKUSDT, VIRTUALUSDT, ORCAUSDT
+[23:44:49] ==============================================================
+[23:44:49] 
+──────────────────────────────────────────────────────
+[23:44:49] ▶ XVGUSDT
+[23:44:49]   Fetching M5 data dari Bybit API...
+[23:45:33]    105,120 candle dari 106 API call
+[23:45:33]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:45:33]   ATR P25: 0.303% → threshold = 0.0030
+[23:45:36]   [DIAG] BOS:281→EMA:195→FVG:180→touch:80→IDM:68→BOS2:59→MSS:35
+[23:45:36]   Running full backtest (1 tahun)...
+[23:45:49]   ✅ Trade:24 | W:13 L:11 | WR:54.2% | PnL:$2.62 | ROI:26.2% | MaxDD:4.7% | PF:2.81
+[23:45:49] 
+──────────────────────────────────────────────────────
+[23:45:49] ▶ BELUSDT
+[23:45:49]   Fetching M5 data dari Bybit API...
+[23:46:20]    105,120 candle dari 106 API call
+[23:46:20]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:46:20]   ATR P25: 0.238% → threshold = 0.0024
+[23:46:24]   [DIAG] BOS:271→EMA:189→FVG:162→touch:68→IDM:50→BOS2:39→MSS:13
+[23:46:24]   Running full backtest (1 tahun)...
+[23:46:37]   ✅ Trade:21 | W:16 L:5 | WR:76.2% | PnL:$4.67 | ROI:46.7% | MaxDD:2.4% | PF:7.18
+[23:46:37] 
+──────────────────────────────────────────────────────
+[23:46:37] ▶ TAOUSDT
+[23:46:37]   Fetching M5 data dari Bybit API...
+[23:47:06]    105,120 candle dari 106 API call
+[23:47:06]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:47:06]   ATR P25: 0.316% → threshold = 0.0032
+[23:47:10]   [DIAG] BOS:277→EMA:214→FVG:196→touch:87→IDM:71→BOS2:57→MSS:27
+[23:47:10]   Running full backtest (1 tahun)...
+[23:47:23]   ✅ Trade:23 | W:15 L:8 | WR:65.2% | PnL:$3.81 | ROI:38.1% | MaxDD:4.5% | PF:4.73
+[23:47:23] 
+──────────────────────────────────────────────────────
+[23:47:23] ▶ 1000BONKUSDT
+[23:47:23]   Fetching M5 data dari Bybit API...
+[23:47:54]    105,120 candle dari 106 API call
+[23:47:54]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:47:54]   ATR P25: 0.348% → threshold = 0.0035
+[23:47:57]   [DIAG] BOS:273→EMA:190→FVG:164→touch:77→IDM:65→BOS2:51→MSS:17
+[23:47:57]   Running full backtest (1 tahun)...
+[23:48:11]   ✅ Trade:28 | W:18 L:10 | WR:64.3% | PnL:$4.78 | ROI:47.8% | MaxDD:3.3% | PF:4.37
+[23:48:11] 
+──────────────────────────────────────────────────────
+[23:48:11] ▶ BERAUSDT
+[23:48:11]   Fetching M5 data dari Bybit API...
+[23:48:46]    94,589 candle dari 95 API call
+[23:48:46]   Data: 94,589 candle | 2025-02-06 → 2025-12-31 | Missing: 10,531 (~10.0%)
+[23:48:46]   ATR P25: 0.322% → threshold = 0.0032
+[23:48:49]   [DIAG] BOS:273→EMA:203→FVG:189→touch:106→IDM:90→BOS2:79→MSS:40
+[23:48:49]   Running full backtest (1 tahun)...
+[23:49:01]   ✅ Trade:31 | W:21 L:10 | WR:67.7% | PnL:$5.92 | ROI:59.2% | MaxDD:3.5% | PF:5.10
+[23:49:01] 
+──────────────────────────────────────────────────────
+[23:49:01] ▶ USUALUSDT
+[23:49:01]   Fetching M5 data dari Bybit API...
+[23:49:40]    105,120 candle dari 106 API call
+[23:49:40]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:49:40]   ATR P25: 0.340% → threshold = 0.0034
+[23:49:43]   [DIAG] BOS:235→EMA:182→FVG:168→touch:90→IDM:72→BOS2:56→MSS:38
+[23:49:43]   Running full backtest (1 tahun)...
+[23:49:55]   ✅ Trade:33 | W:18 L:15 | WR:54.5% | PnL:$3.87 | ROI:38.7% | MaxDD:6.7% | PF:2.84
+[23:49:55] 
+──────────────────────────────────────────────────────
+[23:49:55] ▶ FARTCOINUSDT
+[23:49:55]   Fetching M5 data dari Bybit API...
+[23:50:41]    105,120 candle dari 106 API call
+[23:50:41]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:50:41]   ATR P25: 0.556% → threshold = 0.0056
+[23:50:45]   [DIAG] BOS:313→EMA:218→FVG:198→touch:91→IDM:81→BOS2:69→MSS:42
+[23:50:45]   Running full backtest (1 tahun)...
+[23:50:56]   ✅ Trade:50 | W:34 L:16 | WR:68.0% | PnL:$11.96 | ROI:119.6% | MaxDD:4.5% | PF:5.19
+[23:50:56] 
+──────────────────────────────────────────────────────
+[23:50:56] ▶ 1000PEPEUSDT
+[23:50:56]   Fetching M5 data dari Bybit API...
+[23:51:30]    105,120 candle dari 106 API call
+[23:51:30]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:51:30]   ATR P25: 0.306% → threshold = 0.0031
+[23:51:34]   [DIAG] BOS:287→EMA:201→FVG:186→touch:91→IDM:78→BOS2:64→MSS:29
+[23:51:34]   Running full backtest (1 tahun)...
+[23:51:46]   ✅ Trade:21 | W:14 L:7 | WR:66.7% | PnL:$3.61 | ROI:36.1% | MaxDD:2.3% | PF:4.75
+[23:51:46] 
+──────────────────────────────────────────────────────
+[23:51:46] ▶ WIFUSDT
+[23:51:46]   Fetching M5 data dari Bybit API...
+[23:52:31]    105,120 candle dari 106 API call
+[23:52:31]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:52:31]   ATR P25: 0.378% → threshold = 0.0038
+[23:52:34]   [DIAG] BOS:255→EMA:173→FVG:160→touch:64→IDM:49→BOS2:37→MSS:22
+[23:52:34]   Running full backtest (1 tahun)...
+[23:52:46]   ✅ Trade:28 | W:16 L:12 | WR:57.1% | PnL:$3.60 | ROI:36.0% | MaxDD:4.6% | PF:3.16
+[23:52:46] 
+──────────────────────────────────────────────────────
+[23:52:46] ▶ PENGUUSDT
+[23:52:46]   Fetching M5 data dari Bybit API...
+[23:53:29]    105,120 candle dari 106 API call
+[23:53:29]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:53:29]   ATR P25: 0.397% → threshold = 0.0040
+[23:53:33]   [DIAG] BOS:290→EMA:208→FVG:186→touch:87→IDM:71→BOS2:59→MSS:26
+[23:53:33]   Running full backtest (1 tahun)...
+[23:53:45]   ✅ Trade:40 | W:31 L:9 | WR:77.5% | PnL:$11.46 | ROI:114.6% | MaxDD:4.6% | PF:7.19
+[23:53:45] 
+──────────────────────────────────────────────────────
+[23:53:45] ▶ PNUTUSDT
+[23:53:45]   Fetching M5 data dari Bybit API...
+[23:54:37]    105,120 candle dari 106 API call
+[23:54:37]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:54:37]   ATR P25: 0.357% → threshold = 0.0036
+[23:54:41]   [DIAG] BOS:275→EMA:195→FVG:173→touch:73→IDM:64→BOS2:46→MSS:22
+[23:54:41]   Running full backtest (1 tahun)...
+[23:54:53]   ✅ Trade:31 | W:18 L:13 | WR:58.1% | PnL:$4.21 | ROI:42.1% | MaxDD:3.4% | PF:3.29
+[23:54:53] 
+──────────────────────────────────────────────────────
+[23:54:53] ▶ SUIUSDT
+[23:54:53]   Fetching M5 data dari Bybit API...
+[23:55:36]    105,120 candle dari 106 API call
+[23:55:36]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:55:36]   ATR P25: 0.286% → threshold = 0.0029
+[23:55:40]   [DIAG] BOS:281→EMA:208→FVG:184→touch:83→IDM:63→BOS2:54→MSS:19
+[23:55:40]   Running full backtest (1 tahun)...
+[23:55:53]   ✅ Trade:22 | W:16 L:6 | WR:72.7% | PnL:$4.55 | ROI:45.5% | MaxDD:2.4% | PF:5.69
+[23:55:53] 
+──────────────────────────────────────────────────────
+[23:55:53] ▶ AVAXUSDT
+[23:55:53]   Fetching M5 data dari Bybit API...
+[23:56:21]    105,120 candle dari 106 API call
+[23:56:21]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:56:21]   ATR P25: 0.251% → threshold = 0.0025
+[23:56:24]   [DIAG] BOS:261→EMA:188→FVG:175→touch:81→IDM:69→BOS2:59→MSS:20
+[23:56:24]   Running full backtest (1 tahun)...
+[23:56:36]   ✅ Trade:18 | W:12 L:6 | WR:66.7% | PnL:$3.01 | ROI:30.1% | MaxDD:2.3% | PF:4.80
+[23:56:36] 
+──────────────────────────────────────────────────────
+[23:56:36] ▶ ONDOUSDT
+[23:56:36]   Fetching M5 data dari Bybit API...
+[23:57:04]    105,120 candle dari 106 API call
+[23:57:04]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:57:04]   ATR P25: 0.270% → threshold = 0.0027
+[23:57:08]   [DIAG] BOS:309→EMA:232→FVG:207→touch:93→IDM:83→BOS2:64→MSS:27
+[23:57:08]   Running full backtest (1 tahun)...
+[23:57:21]   ✅ Trade:22 | W:17 L:5 | WR:77.3% | PnL:$5.10 | ROI:51.0% | MaxDD:3.4% | PF:7.63
+[23:57:21] 
+──────────────────────────────────────────────────────
+[23:57:21] ▶ EIGENUSDT
+[23:57:21]   Fetching M5 data dari Bybit API...
+[23:57:49]    105,120 candle dari 106 API call
+[23:57:49]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:57:49]   ATR P25: 0.369% → threshold = 0.0037
+[23:57:53]   [DIAG] BOS:288→EMA:205→FVG:186→touch:96→IDM:82→BOS2:72→MSS:35
+[23:57:53]   Running full backtest (1 tahun)...
+[23:58:05]   ✅ Trade:38 | W:25 L:13 | WR:65.8% | PnL:$7.24 | ROI:72.4% | MaxDD:4.6% | PF:4.96
+[23:58:05] 
+──────────────────────────────────────────────────────
+[23:58:05] ▶ LINKUSDT
+[23:58:05]   Fetching M5 data dari Bybit API...
+[23:58:34]    105,120 candle dari 106 API call
+[23:58:34]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:58:35]   ATR P25: 0.253% → threshold = 0.0025
+[23:58:39]   [DIAG] BOS:303→EMA:221→FVG:203→touch:112→IDM:102→BOS2:86→MSS:46
+[23:58:39]   Running full backtest (1 tahun)...
+[23:58:52]   ✅ Trade:25 | W:15 L:10 | WR:60.0% | PnL:$3.47 | ROI:34.7% | MaxDD:4.7% | PF:3.62
+[23:58:52] 
+──────────────────────────────────────────────────────
+[23:58:52] ▶ VIRTUALUSDT
+[23:58:52]   Fetching M5 data dari Bybit API...
+[23:59:35]    105,120 candle dari 106 API call
+[23:59:35]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[23:59:35]   ATR P25: 0.402% → threshold = 0.0040
+[23:59:38]   [DIAG] BOS:242→EMA:172→FVG:151→touch:76→IDM:57→BOS2:48→MSS:19
+[23:59:38]   Running full backtest (1 tahun)...
+[23:59:51]   ✅ Trade:25 | W:19 L:6 | WR:76.0% | PnL:$5.99 | ROI:59.9% | MaxDD:2.3% | PF:7.45
+[23:59:51] 
+──────────────────────────────────────────────────────
+[23:59:51] ▶ ORCAUSDT
+[23:59:51]   Fetching M5 data dari Bybit API...
+[00:00:28]    105,120 candle dari 106 API call
+[00:00:28]   Data: 105,120 candle | 2025-01-01 → 2025-12-31 | Missing: 0 (~0.0%)
+[00:00:28]   ATR P25: 0.237% → threshold = 0.0024
+[00:00:32]   [DIAG] BOS:249→EMA:180→FVG:163→touch:67→IDM:53→BOS2:41→MSS:11
+[00:00:32]   Running full backtest (1 tahun)...
+[00:00:45]   ✅ Trade:21 | W:13 L:8 | WR:61.9% | PnL:$3.10 | ROI:31.0% | MaxDD:2.2% | PF:3.81
+[00:00:45] 
+==============================================================
+[00:00:45] 📐 Compound Replay (1 pot bersama, risk 1%/trade dari balance live)...
+[00:00:45] TOTAL: 501 trade | WR:66.1% | Compound: $10.00 → $32144.34 (+$32134.34, +321343% ROI)
+[00:00:45]   Q1: 147 trade | WR:68% | PnL:$109.83 | $10.00→$119.83
+[00:00:45]   Q2: 141 trade | WR:70% | PnL:$1346.19 | $119.83→$1466.02
+[00:00:45]   Q3: 99 trade | WR:57% | PnL:$3515.23 | $1466.02→$4981.25
+[00:00:45]   Q4: 114 trade | WR:67% | PnL:$27163.09 | $4981.25→$32144.34
+[00:00:45] ✅ SELESAI — Buka /readme untuk markdown README.md</div>
+  <script>var e=document.getElementById('log');if(e)e.scrollTop=e.scrollHeight;</script>
+
+</body></html>
