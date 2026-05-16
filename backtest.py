@@ -572,35 +572,41 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
         if not gaps:
             i += 12; continue
 
-        # ── Scan FVG touch di M5 — numpy vectorized (max 96 jam) ──
-        scan_end = min(total - 1, i + 12 * 96)
-        seg       = df_m5_full.iloc[i:scan_end]
-        seg_h     = seg['high'].to_numpy(dtype=float)
-        seg_l     = seg['low'].to_numpy(dtype=float)
-        seg_c     = seg['close'].to_numpy(dtype=float)
-        seg_o     = seg['open'].to_numpy(dtype=float)
-        seg_len   = len(seg_h)
-        found_fvg_idx = -1
-        used_fvg = None
+        # CHOCH level — Short: swing high di atas swing_val; Long: swing low di bawah swing_val
+        if stype == "Long":
+            sl_below    = [s for s in sl_h1 if s['val'] < swing_val]
+            choch_level = sl_below[-1]['val'] if sl_below else None
+        else:
+            sh_above    = [s for s in sh_h1 if s['val'] > swing_val]
+            choch_level = sh_above[-1]['val'] if sh_above else None
 
-        # FVG scan — cek per H1 block (12 candle), bukan per candle M5
+        # ── Scan FVG touch di M5 — per blok H1 (max 96 jam) ──
+        scan_end = min(total - 1, i + 12 * 96)
         scan_slice = df_m5_full.iloc[i:scan_end]
         seg_h = scan_slice['high'].to_numpy(dtype=float)
         seg_l = scan_slice['low'].to_numpy(dtype=float)
         seg_c = scan_slice['close'].to_numpy(dtype=float)
         seg_o = scan_slice['open'].to_numpy(dtype=float)
         seg_len = len(seg_h)
+        found_fvg_idx = -1
+        used_fvg = None
+        choch_triggered = False
 
         for fvg in gaps:
             fvg_top = float(fvg['top']); fvg_bot = float(fvg['bottom'])
-            # Scan per blok H1 (setiap 12 candle M5 = 1 jam H1)
             blk_i = 0
             while blk_i < seg_len:
                 blk_end = min(blk_i + 12, seg_len)
                 blk_h   = seg_h[blk_i:blk_end].max()
                 blk_l   = seg_l[blk_i:blk_end].min()
                 blk_c   = seg_c[blk_end - 1]
-                # Broken?
+                # CHOCH: struktur berbalik → setup batal
+                if choch_level:
+                    if stype == "Long"  and blk_c < choch_level:
+                        choch_triggered = True; break
+                    if stype == "Short" and blk_c > choch_level:
+                        choch_triggered = True; break
+                # Broken FVG?
                 if stype == "Long"  and blk_c < fvg_bot: break
                 if stype == "Short" and blk_c > fvg_top: break
                 # Touch?
@@ -609,7 +615,10 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
                 if stype == "Short" and blk_h >= fvg_bot:
                     found_fvg_idx = i + blk_i; used_fvg = fvg; break
                 blk_i += 12
-            if found_fvg_idx >= 0: break
+            if choch_triggered or found_fvg_idx >= 0: break
+
+        if choch_triggered:
+            i += 12; continue
         if found_fvg_idx < 0:
             i += 12 * 24; continue   # tidak ada FVG touch, lompat 24 jam
 
