@@ -76,8 +76,8 @@ session = HTTP(testnet=TESTNET, api_key=API_KEY, api_secret=API_SECRET)
 
 SYMBOLS = [
     'XVGUSDT', 'BELUSDT', 'TAOUSDT', '1000BONKUSDT', 'BERAUSDT',
-    'DOGEUSDT', 'USUALUSDT',
-    'FARTCOINUSDT', '1000PEPEUSDT', '1000FLOKIUSDT',
+    'USUALUSDT',
+    'FARTCOINUSDT', '1000PEPEUSDT',
     'WIFUSDT', 'PENGUUSDT', 'PNUTUSDT',
     'SUIUSDT', 'AVAXUSDT', 'ONDOUSDT', 'JUPUSDT', 'EIGENUSDT',
     'LINKUSDT',
@@ -1177,8 +1177,6 @@ def run_bot():
                             'FARTCOINUSDT'  : 0.0056,   # P25=0.556%
                             'XVGUSDT'       : 0.0030,   # P25=0.303%
                             '1000PEPEUSDT'  : 0.0031,   # P25=0.306%
-                            'DOGEUSDT'      : 0.0024,   # P25=0.242%
-                            '1000FLOKIUSDT' : 0.0030,   # P25=0.296%
                             '1000BONKUSDT'  : 0.0035,   # P25=0.348%
                             'BELUSDT'       : 0.0024,   # P25=0.238%
                             'TAOUSDT'       : 0.0032,   # P25=0.316%

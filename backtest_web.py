@@ -23,8 +23,8 @@ INITIAL_BALANCE  = 10.0   # modal awal $10
 
 COINS = [
     'XVGUSDT', 'BELUSDT', 'TAOUSDT', '1000BONKUSDT', 'BERAUSDT',
-    'DOGEUSDT', 'USUALUSDT',
-    'FARTCOINUSDT', '1000PEPEUSDT', '1000FLOKIUSDT',
+    'USUALUSDT',
+    'FARTCOINUSDT', '1000PEPEUSDT',
     'WIFUSDT', 'PENGUUSDT', 'PNUTUSDT',
     'SUIUSDT', 'AVAXUSDT', 'ONDOUSDT', 'JUPUSDT', 'EIGENUSDT',
     'LINKUSDT',
@@ -44,12 +44,13 @@ _QUARTERS = [
 ]
 
 # ── Global state ──────────────────────────────────────────────────────────
-_lock          = threading.Lock()
-_log           = []
-_phase         = 'running'   # 'running' | 'done' | 'error'
-_results       = []          # per-coin
-_quarter_stats = {}          # Q1..Q4 aggregate
-_all_trades    = []          # semua trade (untuk quarter breakdown)
+_lock               = threading.Lock()
+_log                = []
+_phase              = 'running'   # 'running' | 'done' | 'error'
+_results            = []          # per-coin
+_quarter_stats      = {}          # Q1..Q4 compound
+_all_trades         = []          # semua trade (compound replayed)
+_compound_final_bal = INITIAL_BALANCE
 
 
 def _ts():
@@ -214,7 +215,7 @@ def _diagnose(symbol: str, df: pd.DataFrame, atr_thresh: float):
              f"→touch:{c_fvg_touch}→IDM:{c_idm}→BOS2:{c_bos2}→MSS:{c_mss}")
 
 
-# ── Helper: quarter breakdown ─────────────────────────────────────────────
+# ── Helper: quarter + compound ────────────────────────────────────────────
 def _quarter_of(ts) -> str:
     m = ts.month
     if m <= 3:  return 'Q1'
@@ -222,24 +223,61 @@ def _quarter_of(ts) -> str:
     if m <= 9:  return 'Q3'
     return 'Q4'
 
-def _calc_quarters(all_trades: list) -> dict:
-    """Hitung statistik per kuartal dari semua trade (sorted by entry_ts)."""
+
+def _compound_replay(all_trades: list) -> tuple:
+    """
+    Replay semua trade dalam urutan waktu dengan SATU balance bersama.
+    Risk per trade = 1% dari balance saat itu (compound nyata).
+
+    Untuk TP   : PnL = +3R  = +3 × risk
+    Untuk SL   : PnL = -1R  = -1 × risk
+    Untuk timeout : R_multiple = (exit - entry) / abs(entry - sl)
+                   positif jika menguntungkan
+
+    Return: (replayed_trades, final_balance)
+    """
+    sorted_trades = sorted(all_trades, key=lambda t: t['entry_ts'])
+    bal = INITIAL_BALANCE
+    replayed = []
+    for t in sorted_trades:
+        risk    = bal * 0.01
+        sl_dist = abs(t['entry'] - t['sl'])
+        if sl_dist == 0 or t['entry'] == 0:
+            replayed.append({**t, 'compound_pnl': 0.0, 'compound_bal': bal})
+            continue
+        if t['outcome'] == 'tp':
+            r_mult = 3.0
+        elif t['outcome'] == 'sl':
+            r_mult = -1.0
+        else:  # timeout
+            if t['type'] == 'Long':
+                r_mult = (t['exit_price'] - t['entry']) / sl_dist
+            else:
+                r_mult = (t['entry'] - t['exit_price']) / sl_dist
+        pnl  = r_mult * risk
+        bal += pnl
+        replayed.append({**t, 'compound_pnl': pnl, 'compound_bal': bal})
+    return replayed, bal
+
+
+def _calc_quarters_compound(replayed: list) -> dict:
+    """Statistik per kuartal dari compound replay (sudah sorted by entry_ts)."""
     by_q = {'Q1': [], 'Q2': [], 'Q3': [], 'Q4': []}
-    for t in all_trades:
+    for t in replayed:
         by_q[_quarter_of(t['entry_ts'])].append(t)
 
     stats = {}
     running = INITIAL_BALANCE
     for q in ('Q1', 'Q2', 'Q3', 'Q4'):
-        trades = by_q[q]
+        trades  = by_q[q]
         q_start = running
-        q_pnl   = sum(t['pnl_usd'] for t in trades)
+        q_pnl   = sum(t['compound_pnl'] for t in trades)
         running += q_pnl
-        wins = sum(1 for t in trades if t['outcome'] == 'tp')
-        n    = len(trades)
-        wr   = wins / n * 100 if n else 0.0
-        gw = sum(t['pnl_usd'] for t in trades if t['pnl_usd'] > 0)
-        gl = abs(sum(t['pnl_usd'] for t in trades if t['pnl_usd'] < 0))
+        wins    = sum(1 for t in trades if t['outcome'] == 'tp')
+        n       = len(trades)
+        wr      = wins / n * 100 if n else 0.0
+        gw = sum(t['compound_pnl'] for t in trades if t['compound_pnl'] > 0)
+        gl = abs(sum(t['compound_pnl'] for t in trades if t['compound_pnl'] < 0))
         pf = gw / gl if gl > 0 else (99.0 if gw > 0 else 0.0)
         stats[q] = {
             'trades': n, 'wins': wins, 'wr': wr,
@@ -349,69 +387,84 @@ def _run():
         all_trades_list.extend(trades)
 
         with _lock:
-            _results      = list(results)
-            _all_trades   = list(all_trades_list)
+            _results = list(results)   # progress update sementara
 
-    # ── Ringkasan kuartal ────────────────────────────────────────────────
-    qs = _calc_quarters(all_trades_list)
-    total_pnl  = sum(t['pnl_usd'] for t in all_trades_list)
-    total_w    = sum(1 for t in all_trades_list if t['outcome'] == 'tp')
-    total_n    = len(all_trades_list)
-    wr_all     = total_w / total_n * 100 if total_n else 0
-
+    # ── Compound replay: 1 pot bersama, risk 1% per trade ───────────────
     _log_msg(f"\n{'='*62}")
-    _log_msg(f"TOTAL: {total_n} trade | WR:{wr_all:.1f}% | PnL:${total_pnl:.2f} "
-             f"| ${INITIAL_BALANCE:.2f} → ${INITIAL_BALANCE+total_pnl:.2f}")
+    _log_msg("📐 Compound Replay (1 pot bersama, risk 1%/trade dari balance live)...")
+    replayed, compound_final = _compound_replay(all_trades_list)
+
+    # Update per-coin compound PnL
+    coin_cpnl = {}
+    for t in replayed:
+        coin_cpnl.setdefault(t['symbol'], 0.0)
+        coin_cpnl[t['symbol']] += t['compound_pnl']
+    for r in results:
+        r['compound_pnl'] = coin_cpnl.get(r['symbol'], 0.0)
+
+    qs = _calc_quarters_compound(replayed)
+
+    total_n   = len(all_trades_list)
+    total_w   = sum(1 for t in all_trades_list if t['outcome'] == 'tp')
+    wr_all    = total_w / total_n * 100 if total_n else 0
+    cpnl_tot  = compound_final - INITIAL_BALANCE
+
+    _log_msg(f"TOTAL: {total_n} trade | WR:{wr_all:.1f}% | "
+             f"Compound: ${INITIAL_BALANCE:.2f} → ${compound_final:.2f} "
+             f"(+${cpnl_tot:.2f}, +{cpnl_tot/INITIAL_BALANCE*100:.0f}% ROI)")
     for q, s in qs.items():
         _log_msg(f"  {q}: {s['trades']} trade | WR:{s['wr']:.0f}% | "
                  f"PnL:${s['pnl']:.2f} | ${s['start_bal']:.2f}→${s['end_bal']:.2f}")
     _log_msg("✅ SELESAI — Buka /readme untuk markdown README.md")
 
     with _lock:
-        _phase         = 'done'
-        _quarter_stats = qs
-        _all_trades    = list(all_trades_list)
+        _phase               = 'done'
+        _quarter_stats       = qs
+        _all_trades          = list(replayed)
+        _compound_final_bal  = compound_final
+        _results             = list(results)
 
 
 # ── README markdown generator ─────────────────────────────────────────────
 def _gen_readme() -> str:
     with _lock:
-        results  = list(_results)
-        qs       = dict(_quarter_stats)
-        phase    = _phase
+        results      = list(_results)
+        qs           = dict(_quarter_stats)
+        phase        = _phase
+        final_bal    = _compound_final_bal
 
     if phase == 'running':
         return "# Backtest masih berjalan, coba lagi nanti…\n"
 
-    ok = [r for r in results if r.get('status') == 'ok' and r.get('trades', 0) > 0]
-    total_n    = sum(r['trades'] for r in ok)
-    total_pnl  = sum(r['pnl'] for r in ok)
-    total_w    = sum(r['win'] for r in ok)
-    wr_all     = total_w / total_n * 100 if total_n else 0
-    gw_all     = sum(r['pnl'] for r in ok if r['pnl'] > 0)
-    gl_all     = abs(sum(r['pnl'] for r in ok if r['pnl'] < 0))
-    pf_all     = gw_all / gl_all if gl_all > 0 else 99.0
-    final_bal  = INITIAL_BALANCE + total_pnl
-    roi_all    = total_pnl / INITIAL_BALANCE * 100
+    ok       = [r for r in results if r.get('status') == 'ok' and r.get('trades', 0) > 0]
+    total_n  = sum(r['trades'] for r in ok)
+    total_w  = sum(r['win'] for r in ok)
+    wr_all   = total_w / total_n * 100 if total_n else 0
+    cpnl_tot = final_bal - INITIAL_BALANCE
+    roi_all  = cpnl_tot / INITIAL_BALANCE * 100
 
-    # Per-coin table
+    # per-coin compound PF dari quarter stats tak tersedia langsung — pakai per-coin pf
+    gw_all = sum(r.get('compound_pnl', 0) for r in ok if r.get('compound_pnl', 0) > 0)
+    gl_all = abs(sum(r.get('compound_pnl', 0) for r in ok if r.get('compound_pnl', 0) < 0))
+    pf_all = gw_all / gl_all if gl_all > 0 else 99.0
+
+    # Per-coin table (gunakan compound_pnl)
     coin_rows = ""
-    for r in results:
-        sym = r['symbol']
-        if r.get('status') != 'ok' or r.get('trades', 0) == 0:
-            coin_rows += f"| {sym} | 0 | — | — | — | — | — |\n"
-            continue
-        sign = '+' if r['pnl'] >= 0 else ''
+    for r in sorted(ok, key=lambda x: x.get('compound_pnl', 0), reverse=True):
+        sym   = r['symbol']
+        cpnl  = r.get('compound_pnl', r['pnl'])
+        sign  = '+' if cpnl >= 0 else ''
+        roi_c = cpnl / INITIAL_BALANCE * 100
         coin_rows += (
             f"| {sym} | {r['trades']} | {r['wr']:.0f}% | "
-            f"{sign}${r['pnl']:.2f} | {r['max_dd']:.1f}% | "
+            f"{sign}${cpnl:.2f} | {r['max_dd']:.1f}% | "
             f"{r['pf']:.2f} | {r['p25_atr']:.4f} |\n"
         )
 
-    total_sign = '+' if total_pnl >= 0 else ''
+    total_sign = '+' if cpnl_tot >= 0 else ''
     coin_rows += (
         f"| **TOTAL** | **{total_n}** | **{wr_all:.0f}%** | "
-        f"**{total_sign}${total_pnl:.2f}** | — | **{pf_all:.2f}** | — |\n"
+        f"**{total_sign}${cpnl_tot:.2f}** | — | **{pf_all:.2f}** | — |\n"
     )
 
     # Quarter table
@@ -419,68 +472,109 @@ def _gen_readme() -> str:
     if qs:
         for q, s in qs.items():
             sign = '+' if s['pnl'] >= 0 else ''
+            roi_q = (s['end_bal'] - s['start_bal']) / s['start_bal'] * 100 if s['start_bal'] else 0
             q_rows += (
                 f"| {q} | {s['trades']} | {s['wr']:.0f}% | "
-                f"{sign}${s['pnl']:.2f} | "
+                f"{sign}${s['pnl']:.2f} | +{roi_q:.1f}% | "
                 f"${s['start_bal']:.2f} → ${s['end_bal']:.2f} |\n"
             )
     else:
-        q_rows = "| — | — | — | — | — |\n"
+        q_rows = "| — | — | — | — | — | — |\n"
 
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
-    return f"""# SMC Bot — Backtest Full Year 2025
+    return f"""# 🤖 SMC Trading Bot v4
 
-**Modal Awal: ${INITIAL_BALANCE:.0f} | Risk: 1%/trade compound | TP: 3R | {len(COINS)} Coin**
-**Strategi: BOS H1 → EMA50 → FVG → IDM M5 → BOS/Sweep M5 → MSS → Entry**
-**Data: Bybit Perpetual USDT | M5 → H1 | 2025-01-01 ~ 2025-12-31**
-_(Generated: {today})_
+Bot trading otomatis berbasis **Smart Money Concepts (SMC)** untuk Bybit Futures (USDT Perpetual).
 
 ---
 
-## Hasil Per Coin
+## 📐 Strategi
 
-| Coin | Trade | WR% | PnL USD | MaxDD | PF | ATR P25 |
-|------|------:|----:|--------:|------:|---:|--------:|
+```
+BOS H1 → EMA50 Filter → FVG Touch → IDM M5 → BOS/Sweep M5 → MSS → Entry
+```
+
+**Risk Management:**
+- Risk per trade: **1% dari balance** (compound — tiap trade risk ikut balance live)
+- TP: **3R** (3× jarak SL dari entry)
+- Leverage: otomatis sesuai limit coin, maks 10×
+
+---
+
+## 📊 Hasil Backtest — Full Year 2025
+
+> Modal ${INITIAL_BALANCE:.0f} | Risk 1%/trade compound (1 pot bersama) | TP 3R | ATR Filter Adaptif
+> _{len(COINS)} Coin | Data Bybit Perpetual USDT | M5+H1 | Jan–Des 2025_
+> _(Generated: {today})_
+
+### Per Coin (diurutkan PnL terbesar)
+
+| Coin | Trade | WR% | PnL ($) | MaxDD% | PF | ATR P25 |
+|------|------:|----:|--------:|-------:|---:|--------:|
 {coin_rows}
+
 **${INITIAL_BALANCE:.2f} → ${final_bal:.2f} dalam setahun (+{roi_all:.0f}% ROI)**
 
----
+### Per Kuartal
 
-## Per Kuartal
-
-| Kuartal | Trade | WR% | PnL | Bal Awal → Akhir |
-|---------|------:|----:|----:|:----------------:|
+| Kuartal | Trade | WR% | PnL | ROI Kuartal | Bal Awal → Akhir |
+|---------|------:|----:|----:|:-----------:|:----------------:|
 {q_rows}
----
-
-## Konfigurasi Backtest
+### Konfigurasi
 
 | Parameter | Nilai |
 |-----------|-------|
 | Modal Awal | ${INITIAL_BALANCE:.0f} |
-| Risk per Trade | 1% (compound) |
+| Risk per Trade | 1% balance (compound) |
 | TP | 3R |
-| Leverage | 10× |
-| Fee | 0.055% per sisi (Bybit taker) |
-| Timeframe | M5 + H1 |
-| ATR Filter | P25 per coin (75% waktu lolos) |
+| Leverage | maks 10× |
+| Fee | 0.055%/sisi (Bybit taker) |
+| ATR Filter | P25 per coin |
 | Min RR | 2.8 |
 | Min SL distance | 0.5% |
 
 ---
 
+## ⚙️ Daftar Coin ({len(COINS)} coin aktif)
+
+```python
+SYMBOLS = {COINS}
+```
+
 ## Coin yang Tidak Dimasukkan
 
-- **ENAUSDT** — bearish 3 dari 4 kuartal 2025, ATR tinggi tapi choppy
-- **INJUSDT** — WR 40.7%, PF 1.62 (batch 4 backtest)
-- **ICPUSDT** — hanya 9 trade setahun (terlalu sedikit)
-- **ARBUSDT** — WR 40%, PF 1.57
-- **TONUSDT** — PF 0.82 (losing)
-- **ADAUSDT** — 9 trade
-- **STORJUSDT** — 5 trade
-- **NEARUSDT** — WR 44%
-- **SHIB1000USDT** — symbol tidak tersedia di Bybit (SHIB1000USDT)
+| Coin | Alasan |
+|------|--------|
+| DOGEUSDT | WR 46%, PF 2.02 — konsisten tapi lemah |
+| 1000FLOKIUSDT | WR 45.8%, PF 1.92 — borderline |
+| ENAUSDT | Bearish 3/4 kuartal, ATR tinggi tapi choppy |
+| INJUSDT | WR 40.7%, PF 1.62 |
+| ICPUSDT | Hanya 9 trade/tahun |
+| ARBUSDT | WR 40%, PF 1.57 |
+| TONUSDT | PF 0.82 (losing) |
+| ADAUSDT | 9 trade/tahun |
+| STORJUSDT | 5 trade/tahun |
+| NEARUSDT | WR 44% |
+| SHIB1000USDT | Symbol tidak valid di Bybit |
+
+---
+
+## 🚀 Deploy ke Railway
+
+Set environment variables:
+
+| Variable | Keterangan |
+|----------|-----------|
+| `API_KEY` | Bybit API Key (permission: Trade + Read) |
+| `API_SECRET` | Bybit API Secret |
+| `TESTNET` | `true` untuk testnet, default `false` |
+
+Log monitoring: `https://<project>.up.railway.app/logs`
+
+---
+
+> ⚠️ Hasil backtest tidak menjamin performa di masa depan. Trading crypto mengandung risiko tinggi.
 """
 
 
@@ -513,10 +607,11 @@ a{color:#58a6ff}
 
 def _render_html() -> bytes:
     with _lock:
-        phase  = _phase
-        log_cp = list(_log)
-        res_cp = list(_results)
-        qs     = dict(_quarter_stats)
+        phase    = _phase
+        log_cp   = list(_log)
+        res_cp   = list(_results)
+        qs       = dict(_quarter_stats)
+        cmp_bal  = _compound_final_bal
 
     refresh = '<meta http-equiv="refresh" content="8">' if phase == 'running' else ''
     chip    = ('<span class="chip chip-run">⏳ Running…</span>' if phase == 'running'
@@ -525,7 +620,7 @@ def _render_html() -> bytes:
     # ── per-coin table ──
     coin_rows = ''
     total_n = total_win = total_loss = 0
-    total_pnl = 0.0
+    total_cpnl = 0.0
     for r in res_cp:
         sym     = r['symbol']
         atr_str = f"{r['p25_atr']:.4f}" if 'p25_atr' in r else '—'
@@ -537,47 +632,46 @@ def _render_html() -> bytes:
                           + '<td class="y">—</td>' * 5
                           + f'<td>{atr_str}</td></tr>\n')
         else:
+            cpnl  = r.get('compound_pnl', r['pnl'])
             wr_c  = 'g' if r['wr']     >= 55 else ('y' if r['wr'] >= 45 else 'r')
-            pnl_c = 'g' if r['pnl']    >= 0  else 'r'
+            pnl_c = 'g' if cpnl        >= 0  else 'r'
             dd_c  = 'r' if r['max_dd'] > 20  else ('y' if r['max_dd'] > 10 else 'g')
             pf_c  = 'g' if r['pf']     >= 3  else ('y' if r['pf'] >= 2 else 'r')
-            sign  = '+' if r['pnl'] >= 0 else ''
+            sign  = '+' if cpnl >= 0 else ''
             total_n += r['trades']; total_win += r['win']; total_loss += r['loss']
-            total_pnl += r['pnl']
+            total_cpnl += cpnl
             coin_rows += (
                 f'<tr>'
                 f'<td><b>{sym}</b></td>'
                 f'<td>{r["trades"]}</td>'
                 f'<td class="{wr_c}">{r["wr"]:.1f}%</td>'
-                f'<td class="{pnl_c}">{sign}${r["pnl"]:.2f}</td>'
+                f'<td class="{pnl_c}">{sign}${cpnl:.2f}</td>'
                 f'<td class="{dd_c}">{r["max_dd"]:.1f}%</td>'
                 f'<td class="{pf_c}">{r["pf"]:.2f}</td>'
-                f'<td>${r["final_bal"]:.2f}</td>'
                 f'<td class="g">{atr_str}</td>'
                 f'</tr>\n'
             )
 
     if total_n:
         wr_tot = total_win / total_n * 100
-        sign   = '+' if total_pnl >= 0 else ''
+        sign   = '+' if total_cpnl >= 0 else ''
         coin_rows += (
             f'<tr style="border-top:2px solid #30363d;font-weight:bold">'
             f'<td>TOTAL ({len(res_cp)} coin)</td>'
             f'<td>{total_n}</td>'
             f'<td class="{"g" if wr_tot>=55 else "y"}">{wr_tot:.1f}%</td>'
-            f'<td class="{"g" if total_pnl>=0 else "r"}">{sign}${total_pnl:.2f}</td>'
+            f'<td class="{"g" if total_cpnl>=0 else "r"}">{sign}${total_cpnl:.2f}</td>'
             f'<td>—</td><td>—</td>'
-            f'<td>${INITIAL_BALANCE+total_pnl:.2f}</td>'
             f'<td>—</td></tr>\n'
         )
 
     coin_table = f'''
         <table>
           <tr>
-            <th>Coin</th><th>Trade</th><th>WR%</th><th>PnL USD</th>
-            <th>MaxDD%</th><th>PF</th><th>Final Bal</th><th>ATR P25</th>
+            <th>Coin</th><th>Trade</th><th>WR%</th>
+            <th>PnL Compound</th><th>MaxDD%</th><th>PF</th><th>ATR P25</th>
           </tr>
-          {coin_rows or '<tr><td colspan="8" class="y">Menunggu hasil pertama…</td></tr>'}
+          {coin_rows or '<tr><td colspan="7" class="y">Menunggu hasil pertama…</td></tr>'}
         </table>
     '''
 
@@ -609,9 +703,16 @@ def _render_html() -> bytes:
 
     done_note = ''
     if phase == 'done':
-        done_note = '<p class="g">✅ Backtest selesai! Buka <a href="/readme">/readme</a> untuk export README.md</p>'
+        cpnl = cmp_bal - INITIAL_BALANCE
+        roi  = cpnl / INITIAL_BALANCE * 100
+        done_note = (
+            f'<p class="g">✅ Selesai! '
+            f'Compound: <b>${INITIAL_BALANCE:.2f} → ${cmp_bal:.2f}</b> '
+            f'(+${cpnl:.2f}, +{roi:.0f}% ROI) &nbsp;|&nbsp; '
+            f'<a href="/readme">/readme</a> untuk export README.md</p>'
+        )
 
-    n_done = len(res_cp)
+    n_done  = len(res_cp)
     n_total = len(COINS)
 
     return f'''<!DOCTYPE html>
@@ -638,10 +739,9 @@ def _render_html() -> bytes:
   {'<h2>Per Kuartal (Agregat Semua Coin)</h2>' + q_table if q_table else ''}
 
   <div class="note">
-    💡 <b>ATR P25</b> = threshold filter yang digunakan. &nbsp;
-    <b>Final Bal</b> = ${INITIAL_BALANCE:.0f} + PnL coin tersebut (compound per-coin). &nbsp;
-    Baris <b>TOTAL</b> = ${INITIAL_BALANCE:.0f} + sum semua PnL.
-    <br>Per Kuartal = PnL semua coin yang trade di kuartal tersebut (balance kumulatif).
+    💡 <b>PnL Compound</b> = kontribusi tiap coin ke 1 pot bersama (risk 1% dari balance live per trade).
+    <br><b>Per Kuartal</b> = semua coin diurutkan waktu, balance bergerak bersama.
+    <br>Ini sama persis dengan cara bot live bekerja: tiap trade, risk ikut balance Bybit saat itu.
   </div>
 
   <h2>Log Progress</h2>
