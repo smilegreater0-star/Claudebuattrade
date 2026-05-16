@@ -161,15 +161,24 @@ def _diagnose(symbol: str, df: pd.DataFrame, atr_thresh: float):
         gaps = get_internal_gaps(df_h1, stype, bos_idx)
         if not gaps: i += 12; continue
         c_fvg += 1
+        if stype == 'Long':
+            sl_below    = [s for s in sl_h1 if s['val'] < swing_val]
+            choch_level = sl_below[-1]['val'] if sl_below else None
+        else:
+            sh_above    = [s for s in sh_h1 if s['val'] > swing_val]
+            choch_level = sh_above[-1]['val'] if sh_above else None
         scan_fvg_end = min(total - 1, i + 12 * 96)
         seg_h = df.iloc[i:scan_fvg_end]['high'].to_numpy(float)
         seg_l = df.iloc[i:scan_fvg_end]['low'].to_numpy(float)
         seg_c = df.iloc[i:scan_fvg_end]['close'].to_numpy(float)
-        seg_len = len(seg_h); found_fvg_idx = -1; used_fvg = None
+        seg_len = len(seg_h); found_fvg_idx = -1; used_fvg = None; choch_hit = False
         for fvg in gaps:
             ft, fb = float(fvg['top']), float(fvg['bottom']); blk = 0
             while blk < seg_len:
                 be = min(blk + 12, seg_len); bc = seg_c[be - 1]
+                if choch_level:
+                    if stype == 'Long'  and bc < choch_level: choch_hit = True; break
+                    if stype == 'Short' and bc > choch_level: choch_hit = True; break
                 if stype == 'Long'  and bc < fb: break
                 if stype == 'Short' and bc > ft: break
                 if stype == 'Long'  and seg_l[blk:be].min() <= ft:
@@ -177,7 +186,8 @@ def _diagnose(symbol: str, df: pd.DataFrame, atr_thresh: float):
                 if stype == 'Short' and seg_h[blk:be].max() >= fb:
                     found_fvg_idx = i + blk; used_fvg = fvg; break
                 blk += 12
-            if found_fvg_idx >= 0: break
+            if choch_hit or found_fvg_idx >= 0: break
+        if choch_hit: i += 12; continue
         if found_fvg_idx < 0: i += 12 * 24; continue
         c_fvg_touch += 1
         idm_end = min(total - 1, found_fvg_idx + 12 * 48)
