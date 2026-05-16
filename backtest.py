@@ -105,6 +105,12 @@ ATR_THRESHOLD = {
     'ONDOUSDT'      : 0.0027,   # P25=0.270%
     'JUPUSDT'       : 0.0030,   # P25=0.295%
     'EIGENUSDT'     : 0.0037,   # P25=0.369%
+    # Coin batch 3 — diisi otomatis oleh backtest_web.py saat runtime
+    'TONUSDT'       : 0.0035,
+    'ADAUSDT'       : 0.0035,
+    'STORJUSDT'     : 0.0035,
+    'LINKUSDT'      : 0.0035,
+    'NEARUSDT'      : 0.0035,
 }
 
 def _parse_one_file(path):
