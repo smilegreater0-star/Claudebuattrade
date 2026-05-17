@@ -1213,20 +1213,20 @@ def run_bot():
                         # Candle MSS harus punya body >= 40% dari range (genuine momentum).
                         mss_body  = abs(float(mss_candle['close']) - float(mss_candle['open']))
                         mss_range = abs(float(mss_candle['high'])  - float(mss_candle['low']))
-                        if mss_range > 0 and mss_body / mss_range < 0.30:
-                            print(f"⚠️ {coin}: MSS candle terlalu lemah (body {mss_body/mss_range*100:.0f}% < 30%), skip.")
-                            del pending[coin]
-                            continue
+                        # if mss_range > 0 and mss_body / mss_range < 0.30:  # DISABLED
+                        #     print(f"⚠️ {coin}: MSS candle terlalu lemah (body {mss_body/mss_range*100:.0f}% < 30%), skip.")
+                        #     del pending[coin]
+                        #     continue
 
                         # ─── [v5.4b] FIX #2: VOLUME RATIO FILTER ────────────
                         # Trades saat vol < 0.40× rata-rata = net negatif secara kolektif.
                         mss_vol     = float(mss_candle.get('vol', 0))
                         recent_vols = df_m5['vol'].tail(20)
                         avg_vol     = recent_vols.mean()
-                        if avg_vol > 0 and mss_vol / avg_vol < 0.25:
-                            print(f"⚠️ {coin}: Volume MSS terlalu rendah ({mss_vol/avg_vol:.2f}x < 0.25x), skip.")
-                            del pending[coin]
-                            continue
+                        # if avg_vol > 0 and mss_vol / avg_vol < 0.25:  # DISABLED
+                        #     print(f"⚠️ {coin}: Volume MSS terlalu rendah ({mss_vol/avg_vol:.2f}x < 0.25x), skip.")
+                        #     del pending[coin]
+                        #     continue
 
                         # ── ATR Filter Adaptif ──────────────────────────────
                         ATR_THRESHOLD = {
@@ -1261,10 +1261,10 @@ def run_bot():
                             tr = pd.concat([hh-ll, (hh-pc).abs(), (ll-pc).abs()], axis=1).max(axis=1)
                             atr_m5_val = tr.mean()
                             ref_price  = float(df_atr_m5['close'].iloc[-1])
-                            if ref_price > 0 and (atr_m5_val / ref_price) < atr_thresh:
-                                print(f"⚠️ {coin}: ATR {atr_m5_val/ref_price*100:.3f}%"
-                                      f" < threshold {atr_thresh*100:.2f}% — sideways, skip.")
-                                continue
+                            # if ref_price > 0 and (atr_m5_val / ref_price) < atr_thresh:  # DISABLED
+                            #     print(f"⚠️ {coin}: ATR {atr_m5_val/ref_price*100:.3f}%"
+                            #           f" < threshold {atr_thresh*100:.2f}% — sideways, skip.")
+                            #     continue
 
                         # MSS confirmed — cari entry terbaik
                         # Prioritas: Breaker Block > FVG H1
@@ -1356,12 +1356,12 @@ def run_bot():
                 if swing_val is None or bos_idx is None: continue
                 stype = "Short" if is_short else "Long"
 
-                # [v5] FIX #3: TREND FILTER EMA50 H1
+                # [v5] FIX #3: TREND FILTER EMA50 H1 (DISABLED)
                 ema50 = calc_ema(df_h1_live['close'], 50).iloc[-1]
-                if stype == "Long"  and curr_h1['close'] < ema50:
-                    continue
-                if stype == "Short" and curr_h1['close'] > ema50:
-                    continue
+                # if stype == "Long"  and curr_h1['close'] < ema50:
+                #     continue
+                # if stype == "Short" and curr_h1['close'] > ema50:
+                #     continue
 
                 # Hitung CHOCH dulu — agar bisa filter FVG yang straddle CHOCH
                 if stype == "Long":
