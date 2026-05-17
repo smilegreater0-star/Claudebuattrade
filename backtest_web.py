@@ -22,10 +22,14 @@ PORT             = int(os.environ.get('PORT', 8080))
 INITIAL_BALANCE  = 10.0   # modal awal $10
 
 COINS = [
-    # Coin yang pernah dibuang — ditest ulang dengan strategi recursive IDM baru
-    'DOGEUSDT', '1000FLOKIUSDT', 'ENAUSDT',
-    'INJUSDT', 'ICPUSDT', 'ARBUSDT',
-    'TONUSDT', 'ADAUSDT', 'STORJUSDT', 'NEARUSDT',
+    # Core (run 1 — tetap)
+    'XVGUSDT', 'BELUSDT', '1000BONKUSDT', 'BERAUSDT', 'USUALUSDT',
+    '1000PEPEUSDT', 'WIFUSDT', 'PENGUUSDT', 'PNUTUSDT',
+    'AVAXUSDT', 'ONDOUSDT', 'EIGENUSDT', 'LINKUSDT', 'VIRTUALUSDT', 'ORCAUSDT',
+    # Rehabilitasi (run 2 — profitable dengan recursive IDM)
+    'DOGEUSDT', 'ARBUSDT', 'NEARUSDT', 'STORJUSDT', 'ENAUSDT', 'ADAUSDT',
+    # Kandidat baru
+    '1000SHIBUSDT',
 ]
 
 # 2025-01-01 00:00:00 UTC  →  2025-12-31 23:59:59 UTC  (dalam ms)
@@ -305,7 +309,7 @@ def _run():
     global _phase, _results, _quarter_stats, _all_trades, _compound_final_bal
 
     _log_msg("=" * 62)
-    _log_msg(f"BACKTEST COIN EXCLUDED — Strategi Recursive IDM | Full Year 2025 | Modal ${INITIAL_BALANCE:.0f} | Risk 1%")
+    _log_msg(f"BACKTEST 22 COIN — Strategi Recursive IDM | Full Year 2025 | Modal ${INITIAL_BALANCE:.0f} | Risk 1%")
     _log_msg(f"{len(COINS)} Coins: {', '.join(COINS)}")
     _log_msg("=" * 62)
 
@@ -741,12 +745,12 @@ def _render_html() -> bytes:
 <html lang="id">
 <head>
   <meta charset="utf-8">
-  <title>Backtest Excluded Coins — SMC Bot Recursive IDM</title>
+  <title>Backtest 22 Coins — SMC Bot Recursive IDM</title>
   {_CSS}
   {refresh}
 </head>
 <body>
-  <h1>🤖 Backtest SMC Bot — Excluded Coins (Recursive IDM, Full Year 2025)</h1>
+  <h1>🤖 Backtest SMC Bot — 22 Coins (Recursive IDM, Full Year 2025)</h1>
   <p>
     <b>{n_done}/{n_total} coin selesai</b> &nbsp;|&nbsp;
     Modal: <b>${INITIAL_BALANCE:.0f}</b> &nbsp;|&nbsp;

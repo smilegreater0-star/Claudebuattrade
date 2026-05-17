@@ -83,39 +83,31 @@ FILES = {
 
 UPLOAD_DIR = "/mnt/user-data/uploads"
 
-# ATR filter threshold per coin (P25 ATR historis)
-# backtest_web.py dapat mengupdate dict ini sebelum memanggil backtest_coin()
+# ATR filter threshold per coin (P25 ATR historis dari backtest)
+# backtest_web.py override dict ini dengan nilai live saat runtime
 ATR_THRESHOLD = {
-    'FARTCOINUSDT'  : 0.0056,   # P25=0.556%
     'XVGUSDT'       : 0.0030,   # P25=0.303%
     '1000PEPEUSDT'  : 0.0031,   # P25=0.306%
-    'DOGEUSDT'      : 0.0024,   # P25=0.242%
-    '1000FLOKIUSDT' : 0.0030,   # P25=0.296%
     '1000BONKUSDT'  : 0.0035,   # P25=0.348%
     'BELUSDT'       : 0.0024,   # P25=0.238%
-    'TAOUSDT'       : 0.0032,   # P25=0.316%
     'USUALUSDT'     : 0.0034,   # P25=0.340%
-    'ENAUSDT'       : 0.0035,
-    'BERAUSDT'      : 0.0035,
+    'BERAUSDT'      : 0.0032,   # P25=0.322%
     'WIFUSDT'       : 0.0038,   # P25=0.378%
     'PENGUUSDT'     : 0.0040,   # P25=0.397%
     'PNUTUSDT'      : 0.0036,   # P25=0.357%
-    'SUIUSDT'       : 0.0029,   # P25=0.286%
     'AVAXUSDT'      : 0.0025,   # P25=0.251%
     'ONDOUSDT'      : 0.0027,   # P25=0.270%
     'EIGENUSDT'     : 0.0037,   # P25=0.369%
-    # Coin batch 3 — diisi otomatis oleh backtest_web.py saat runtime
-    'TONUSDT'       : 0.0035,
-    'ADAUSDT'       : 0.0035,
-    'STORJUSDT'     : 0.0035,
     'LINKUSDT'      : 0.0025,   # P25=0.253%
-    'NEARUSDT'      : 0.0035,
-    # Coin batch 4 — diisi otomatis oleh backtest_web.py saat runtime
-    'INJUSDT'       : 0.0035,
     'VIRTUALUSDT'   : 0.0040,   # P25=0.402%
     'ORCAUSDT'      : 0.0024,   # P25=0.237%
-    'ICPUSDT'       : 0.0035,
-    'ARBUSDT'       : 0.0035,
+    'DOGEUSDT'      : 0.0024,   # P25=0.242%
+    'ARBUSDT'       : 0.0028,   # P25=0.279%
+    'NEARUSDT'      : 0.0029,   # P25=0.287%
+    'STORJUSDT'     : 0.0017,   # P25=0.172%
+    'ENAUSDT'       : 0.0039,   # P25=0.388%
+    'ADAUSDT'       : 0.0025,   # P25=0.247%
+    '1000SHIBUSDT'  : 0.0035,   # default — akan di-override saat runtime
 }
 
 def _parse_one_file(path):
