@@ -793,22 +793,21 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             in_trade_until_idx = mss_m5_idx + 300
 
         # Setelah SL kena, apakah harga balik ke TP sebelum CHOCH?
-        # CHOCH = 1×dist di balik SL (2R dari entry) — struktur dianggap berubah jika tembus sana.
-        # Hitung hanya jika TP tercapai SEBELUM CHOCH.
+        # choch_level sudah dihitung saat BOS terbentuk (swing low/high di luar range BOS).
+        # Hitung sl_then_tp hanya jika TP tercapai SEBELUM CHOCH.
         sl_then_tp = False
         if outcome == 'sl':
-            choch_level = sl_price - dist if stype == "Long" else sl_price + dist
             scan_end = min(in_trade_until_idx + 1 + 200, len(df_m5_full))
             for k in range(in_trade_until_idx + 1, scan_end):
                 ck     = df_m5_full.iloc[k]
                 low_k  = float(ck['low'])
                 high_k = float(ck['high'])
                 if stype == "Long":
-                    if low_k  <= choch_level: break           # CHOCH duluan → stop scan
-                    if high_k >= final_tp:    sl_then_tp = True; break
+                    if choch_level and low_k  <= choch_level: break  # CHOCH duluan → stop
+                    if high_k >= final_tp: sl_then_tp = True; break
                 else:
-                    if high_k >= choch_level: break           # CHOCH duluan → stop scan
-                    if low_k  <= final_tp:    sl_then_tp = True; break
+                    if choch_level and high_k >= choch_level: break  # CHOCH duluan → stop
+                    if low_k  <= final_tp: sl_then_tp = True; break
 
         trades.append({
             'symbol'         : symbol,
