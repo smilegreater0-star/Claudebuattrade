@@ -1305,10 +1305,10 @@ def run_bot():
 
                         bb = find_breaker_block(df_m5, mss_candle['ts'], stype)
 
-                        # Market order di MSS close — SL di BB (zona yang "seharusnya" jadi entry)
+                        # Market order di MSS close — SL di bb['sl'] (SL asli BB, lebih lebar)
                         entry_price = float(mss_candle['close'])
                         if bb is not None:
-                            sl_price = bb['entry']  # BB price jadi SL
+                            sl_price = bb['sl']   # SL asli BB
                             print(f"🧱 {coin}: Market MSS @ {entry_price:.6f} | SL BB {sl_price:.6f}")
                         else:
                             sl_price = float(mss_candle['low']) if stype == "Long" else float(mss_candle['high'])

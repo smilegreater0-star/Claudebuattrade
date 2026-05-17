@@ -745,15 +745,15 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             #     i += 12; continue
 
         # ── Entry: Market order saat MSS M5 close ──
-        # SL di BB entry (harga yang "seharusnya" jadi entry limit) karena harga sering
-        # langsung pergi dari BB tanpa pullback. Kalau harga balik ke BB → struktur gagal.
+        # SL di bb['sl'] — SL asli breaker block (lebih lebar dari bb['entry'],
+        # memberi ruang untuk wick/noise sebelum invalidasi struktur).
         entry_price = float(mss_candle['close'])
 
         df_bb = df_m5_full.iloc[max(0, mss_m5_idx - 20): mss_m5_idx + 1].reset_index(drop=True)
         bb = find_breaker_block(df_bb, int(mss_candle['ts_ms']), stype)
 
         if bb is not None:
-            sl_price = bb['entry']  # BB price jadi SL
+            sl_price = bb['sl']   # SL asli BB (bukan bb['entry'])
         else:
             # Fallback: low/high MSS candle
             sl_price = float(mss_candle['low']) if stype == "Long" else float(mss_candle['high'])
