@@ -29,7 +29,7 @@ COINS = [
     # Rehabilitasi (run 2 — profitable dengan recursive IDM)
     'DOGEUSDT', 'ARBUSDT', 'NEARUSDT', 'STORJUSDT', 'ENAUSDT', 'ADAUSDT',
     # Kandidat baru
-    '1000SHIBUSDT',
+    'SHIB1000USDT',
 ]
 
 # 2025-01-01 00:00:00 UTC  →  2025-12-31 23:59:59 UTC  (dalam ms)
@@ -577,7 +577,7 @@ Ini adalah backtest **khusus coin yang sebelumnya dibuang**, diuji ulang dengan 
 | ADAUSDT | 9 trade/tahun |
 | STORJUSDT | 5 trade/tahun |
 | NEARUSDT | WR 44% |
-| SHIB1000USDT | Symbol tidak valid di Bybit (tidak ditest) |
+| SHIB1000USDT | Ditest di run ini dengan symbol yang benar |
 
 ---
 

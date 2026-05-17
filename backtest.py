@@ -107,7 +107,7 @@ ATR_THRESHOLD = {
     'STORJUSDT'     : 0.0017,   # P25=0.172%
     'ENAUSDT'       : 0.0039,   # P25=0.388%
     'ADAUSDT'       : 0.0025,   # P25=0.247%
-    '1000SHIBUSDT'  : 0.0035,   # default — akan di-override saat runtime
+    'SHIB1000USDT'  : 0.0035,   # default — akan di-override saat runtime
 }
 
 def _parse_one_file(path):
