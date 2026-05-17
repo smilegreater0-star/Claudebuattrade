@@ -23,6 +23,11 @@ TAKER_FEE       = 0.00055   # 0.055% per side (Bybit USDT perp)
 MIN_RR          = 1.5   # 1:2 = 2.0, 1:3 = 3.0 — cukup untuk contrarian
 MIN_DIST_PCT    = 0.005     # minimum SL distance 0.5%
 
+# ── Test variant config (override dari luar untuk testing) ──
+ENTRY_MODE = 'bb_sl'   # 'bb_sl' | 'bb_entry'
+SL_MULT    = 2.0        # SL = mss_close ± dist * SL_MULT
+TP_MULT    = 2.0        # TP = mss_close ± dist * TP_MULT
+
 DATA_DIR = "/home/claude/fulldata"
 FILES = {
     '1000BONKUSDT' : [
@@ -492,7 +497,7 @@ def simulate_trade(df_m5, entry_idx, entry, sl, tp, stype, balance, _skip_reason
 # BACKTEST PER COIN
 # ============================================================
 
-def backtest_coin(symbol, df_m5_full, initial_balance):
+def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
     """
     Walk-forward backtest — scan per 12 candle (1 jam H1).
     Optimasi: skip besar saat tidak ada setup, in-trade skip.
@@ -623,6 +628,16 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
 
         if found_fvg_idx < 0:
             i += 12; continue  # tidak ada touch H1 ini → lanjut 1 jam saja
+
+        # LOG event untuk analisis eksternal
+        if _fvg_events is not None:
+            _fvg_events.append({
+                'idx'    : found_fvg_idx,
+                'ts'     : df_m5_full.iloc[found_fvg_idx]['ts'],
+                'stype'  : active_stype,
+                'price'  : float(df_m5_full.iloc[found_fvg_idx]['close']),
+                'choch'  : active_choch,
+            })
 
         # ── FVG touch ditemukan → lanjut IDM, reset active state ──
         stype       = active_stype
@@ -763,7 +778,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
         bb    = find_breaker_block(df_bb, int(mss_candle['ts_ms']), stype)
         if bb is None: c_dir_fail += 1; i += 12; continue
 
-        limit_entry = bb['sl']                     # entry = bb['sl'] (limit order)
+        limit_entry = bb['sl'] if ENTRY_MODE == 'bb_sl' else bb['entry']
         dist        = abs(mss_close - limit_entry) # 1R reference
         if dist == 0: i += 12; continue
 
@@ -771,27 +786,35 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
         if dist < min_dist: c_dir_fail += 1; i += 12; continue
 
         if stype == "Long":
-            sl_price = mss_close - dist * 2   # SL 2R di bawah MSS close
-            final_tp = mss_close + dist * 2   # TP 2R di atas MSS close
+            sl_price = mss_close - dist * SL_MULT
+            final_tp = mss_close + dist * TP_MULT
         else:
-            sl_price = mss_close + dist * 2   # SL 2R di atas MSS close
-            final_tp = mss_close - dist * 2   # TP 2R di bawah MSS close
+            sl_price = mss_close + dist * SL_MULT
+            final_tp = mss_close - dist * TP_MULT
 
-        # Scan untuk limit fill (max 60 candle = 5 jam)
-        FILL_TIMEOUT = 60
-        fill_idx = None
-        for j in range(mss_m5_idx + 1, min(mss_m5_idx + 1 + FILL_TIMEOUT, len(df_m5_full))):
-            cj = df_m5_full.iloc[j]
-            if stype == "Long":
-                if float(cj['high']) >= final_tp:   break             # TP duluan → tidak fill
-                if float(cj['low'])  <= limit_entry: fill_idx = j; break  # koreksi ke entry → fill
-            else:
-                if float(cj['low'])  <= final_tp:   break
-                if float(cj['high']) >= limit_entry: fill_idx = j; break
-
-        if fill_idx is None: c_dir_fail += 1; i += 12; continue
-
-        entry_price = limit_entry   # actual fill price
+        # Fill logic tergantung ENTRY_MODE
+        if ENTRY_MODE == 'market':
+            # Market entry langsung di MSS close, no limit scan
+            fill_idx   = mss_m5_idx
+            entry_price = mss_close
+        elif ENTRY_MODE in ('bb_entry_imm',):
+            # Immediate fill di bb['entry'] saat MSS fires, no scan
+            fill_idx   = mss_m5_idx
+            entry_price = limit_entry
+        else:
+            # Limit order: scan forward untuk pullback ke limit_entry
+            FILL_TIMEOUT = 60
+            fill_idx = None
+            for j in range(mss_m5_idx + 1, min(mss_m5_idx + 1 + FILL_TIMEOUT, len(df_m5_full))):
+                cj = df_m5_full.iloc[j]
+                if stype == "Long":
+                    if float(cj['high']) >= final_tp:   break
+                    if float(cj['low'])  <= limit_entry: fill_idx = j; break
+                else:
+                    if float(cj['low'])  <= final_tp:   break
+                    if float(cj['high']) >= limit_entry: fill_idx = j; break
+            if fill_idx is None: c_dir_fail += 1; i += 12; continue
+            entry_price = limit_entry
 
         # ── Simulasi dari fill_idx ──
         pnl, outcome, exit_p, exit_ts = simulate_trade(
