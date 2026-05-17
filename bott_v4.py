@@ -767,26 +767,31 @@ def replay_h1(coin, df_h1):
     if swing_val is None or bos_idx is None:
         return None
 
+    # CHOCH level dulu — agar bisa filter FVG yang straddle CHOCH
+    # Long → swing low di BAWAH swing_val (jika ditembus ke bawah → CHOCH)
+    # Short → swing high di ATAS swing_val (jika ditembus ke atas → CHOCH)
+    if stype == "Long":
+        sl_below    = [s for s in sl_h1 if s['val'] < swing_val]
+        choch_level = sl_below[-1]['val'] if sl_below else None
+    else:
+        sh_above    = [s for s in sh_h1 if s['val'] > swing_val]
+        choch_level = sh_above[-1]['val'] if sh_above else None
+
     # FIX #1: FVG hanya dari dalam range BOS
+    # FIX #4: buang FVG yang straddle CHOCH — FVG pre-BOS dari leg lama bisa melewati CHOCH level
     df_snap = df_h1.copy()
     gaps    = get_internal_gaps(df_snap, stype, bos_idx)
+    if choch_level:
+        if stype == "Long":
+            gaps = [g for g in gaps if g['bottom'] >= choch_level]
+        else:
+            gaps = [g for g in gaps if g['top'] <= choch_level]
     if not gaps:
         return None
 
     # [v5.4b-1R] tp_val = placeholder (TP dihitung ulang dari actual entry saat order)
     bos_ts = df_snap['ts'].iloc[bos_idx]
     tp_val = 0  # placeholder
-
-    # CHOCH level:
-    # Long → swing low di BAWAH swing_val (jika ditembus ke bawah → CHOCH)
-    # Short → swing high di ATAS swing_val (jika ditembus ke atas → CHOCH)
-    # Jangan pakai sh_h1[-1] / sl_h1[-1] mentah — bisa Lower High/Higher Low di dalam range
-    if stype == "Long":
-        sl_below = [s for s in sl_h1 if s['val'] < swing_val]
-        choch_level = sl_below[-1]['val'] if sl_below else None
-    else:
-        sh_above = [s for s in sh_h1 if s['val'] > swing_val]
-        choch_level = sh_above[-1]['val'] if sh_above else None
 
     state = {
         'type': stype, 'df_h1': df_snap,
@@ -927,6 +932,13 @@ def run_bot():
                         fresh_gaps = []
                     else:
                         fresh_gaps = get_internal_gaps(df_h1_live, stype, bos_idx)
+                    # FIX #4: filter FVG yang straddle CHOCH level (sama seperti saat BOS pertama)
+                    choch_now = setup.get('choch_level')
+                    if choch_now and fresh_gaps:
+                        if stype == "Long":
+                            fresh_gaps = [g for g in fresh_gaps if g['bottom'] >= choch_now]
+                        else:
+                            fresh_gaps = [g for g in fresh_gaps if g['top'] <= choch_now]
                     if fresh_gaps:
                         pending[coin]['fvg_list'] = fresh_gaps
                     fvg_list = pending[coin]['fvg_list']
@@ -1340,8 +1352,22 @@ def run_bot():
                 if stype == "Short" and curr_h1['close'] > ema50:
                     continue
 
+                # Hitung CHOCH dulu — agar bisa filter FVG yang straddle CHOCH
+                if stype == "Long":
+                    sl_below    = [s for s in sl_h1 if s['val'] < swing_val]
+                    choch_level = sl_below[-1]['val'] if sl_below else None
+                else:
+                    sh_above    = [s for s in sh_h1 if s['val'] > swing_val]
+                    choch_level = sh_above[-1]['val'] if sh_above else None
+
                 df_h1_snap = df_h1_live.copy()
                 gaps = get_internal_gaps(df_h1_snap, stype, bos_idx)
+                # FIX #4: buang FVG yang straddle CHOCH level
+                if choch_level:
+                    if stype == "Long":
+                        gaps = [g for g in gaps if g['bottom'] >= choch_level]
+                    else:
+                        gaps = [g for g in gaps if g['top'] <= choch_level]
                 if not gaps:
                     print(f"⚠️ {coin}: BOS {stype} tapi tidak ada FVG di dalam range.")
                     continue
@@ -1359,13 +1385,6 @@ def run_bot():
                 existing = pending.get(coin)
                 if existing and existing.get('swing_val') == swing_val and existing.get('type') == stype:
                     continue  # BOS yang sama, skip
-
-                if stype == "Long":
-                    sl_below    = [s for s in sl_h1 if s['val'] < swing_val]
-                    choch_level = sl_below[-1]['val'] if sl_below else None
-                else:
-                    sh_above    = [s for s in sh_h1 if s['val'] > swing_val]
-                    choch_level = sh_above[-1]['val'] if sh_above else None
 
                 pending[coin] = {
                     'type': stype, 'df_h1': df_h1_snap,

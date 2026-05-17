@@ -550,18 +550,23 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             i += 12; continue
         last_bos_key = bos_key
 
-        # FVG
-        gaps = get_internal_gaps(df_h1, stype, bos_idx)
-        if not gaps:
-            i += 12; continue
-
-        # CHOCH level — Short: swing high di atas swing_val; Long: swing low di bawah swing_val
+        # CHOCH level dulu — agar bisa filter FVG yang straddle CHOCH
         if stype == "Long":
             sl_below    = [s for s in sl_h1 if s['val'] < swing_val]
             choch_level = sl_below[-1]['val'] if sl_below else None
         else:
             sh_above    = [s for s in sh_h1 if s['val'] > swing_val]
             choch_level = sh_above[-1]['val'] if sh_above else None
+
+        # FVG — filter FVG yang straddle CHOCH (bottom < CHOCH untuk Long / top > CHOCH untuk Short)
+        gaps = get_internal_gaps(df_h1, stype, bos_idx)
+        if choch_level:
+            if stype == "Long":
+                gaps = [g for g in gaps if g['bottom'] >= choch_level]
+            else:
+                gaps = [g for g in gaps if g['top'] <= choch_level]
+        if not gaps:
+            i += 12; continue
 
         # ── Scan FVG touch di M5 — per blok H1 (max 96 jam) ──
         scan_end = min(total - 1, i + 12 * 96)
