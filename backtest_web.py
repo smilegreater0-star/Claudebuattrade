@@ -22,14 +22,8 @@ PORT             = int(os.environ.get('PORT', 8080))
 INITIAL_BALANCE  = 10.0   # modal awal $10
 
 COINS = [
-    # Core (run 1 — tetap)
-    'XVGUSDT', 'BELUSDT', '1000BONKUSDT', 'BERAUSDT', 'USUALUSDT',
-    '1000PEPEUSDT', 'WIFUSDT', 'PENGUUSDT', 'PNUTUSDT',
-    'AVAXUSDT', 'ONDOUSDT', 'EIGENUSDT', 'LINKUSDT', 'VIRTUALUSDT', 'ORCAUSDT',
-    # Rehabilitasi (run 2 — profitable dengan recursive IDM)
-    'DOGEUSDT', 'ARBUSDT', 'NEARUSDT', 'STORJUSDT', 'ENAUSDT', 'ADAUSDT',
-    # Kandidat baru
-    'SHIB1000USDT',
+    # Coin yang sebelumnya dibuang — ditest ulang dengan recursive IDM + FVG-CHOCH fix
+    'TAOUSDT', 'FARTCOINUSDT', 'SUIUSDT', '1000FLOKIUSDT', 'TONUSDT', 'INJUSDT', 'ICPUSDT',
 ]
 
 # 2025-01-01 00:00:00 UTC  →  2025-12-31 23:59:59 UTC  (dalam ms)
