@@ -429,8 +429,9 @@ def _run():
             with _lock: _results = list(results)
             continue
 
-        wins   = [t for t in trades if t['outcome'] == 'tp']
-        losses = [t for t in trades if t['outcome'] == 'sl']
+        wins      = [t for t in trades if t['outcome'] == 'tp']
+        losses    = [t for t in trades if t['outcome'] == 'sl']
+        sl_then_tp = sum(1 for t in trades if t.get('sl_then_tp'))
         pnl    = sum(t['pnl_usd'] for t in trades)
         wr     = len(wins) / n * 100
         roi    = pnl / INITIAL_BALANCE * 100
@@ -446,9 +447,11 @@ def _run():
         gl = abs(sum(t['pnl_usd'] for t in trades if t['pnl_usd'] < 0))
         pf = gw / gl if gl > 0 else 99.0
 
+        sl_tp_pct = sl_then_tp / len(losses) * 100 if losses else 0
         _log_msg(
             f"  ✅ Trade:{n} | W:{len(wins)} L:{len(losses)} | WR:{wr:.1f}% | "
-            f"PnL:${pnl:.2f} | ROI:{roi:.1f}% | MaxDD:{max_dd:.1f}% | PF:{pf:.2f}"
+            f"PnL:${pnl:.2f} | ROI:{roi:.1f}% | MaxDD:{max_dd:.1f}% | PF:{pf:.2f} | "
+            f"SL→TP:{sl_then_tp}/{len(losses)} ({sl_tp_pct:.0f}%)"
         )
 
         results.append({
@@ -459,6 +462,7 @@ def _run():
             'longs': len([t for t in trades if t['type'] == 'Long']),
             'shorts': len([t for t in trades if t['type'] == 'Short']),
             'p25_atr': p25_atr,
+            'sl_then_tp': sl_then_tp,
             'win_loss': _win_loss_analysis(trades),
         })
         all_trades_list.extend(trades)
@@ -711,20 +715,24 @@ def _render_html() -> bytes:
         atr_str = f"{r['p25_atr']:.4f}" if 'p25_atr' in r else '—'
         if r.get('status') in ('no_data', 'error'):
             label = '⚠ no data' if r['status'] == 'no_data' else '❌ error'
-            coin_rows += f'<tr><td><b>{sym}</b></td><td class="r" colspan="8">{label}</td></tr>\n'
+            coin_rows += f'<tr><td><b>{sym}</b></td><td class="r" colspan="9">{label}</td></tr>\n'
         elif r.get('trades', 0) == 0:
             coin_rows += (f'<tr><td><b>{sym}</b></td><td class="y">0</td>'
-                          + '<td class="y">—</td>' * 6
+                          + '<td class="y">—</td>' * 7
                           + f'<td>{atr_str}</td></tr>\n')
         else:
-            cpnl  = r.get('compound_pnl', r['pnl'])
-            roi   = cpnl / INITIAL_BALANCE * 100
-            wr_c  = 'g' if r['wr']     >= 55 else ('y' if r['wr'] >= 45 else 'r')
-            pnl_c = 'g' if cpnl        >= 0  else 'r'
-            roi_c = 'g' if roi         >= 0  else 'r'
-            dd_c  = 'r' if r['max_dd'] > 20  else ('y' if r['max_dd'] > 10 else 'g')
-            pf_c  = 'g' if r['pf']     >= 3  else ('y' if r['pf'] >= 2 else 'r')
-            sign  = '+' if cpnl >= 0 else ''
+            cpnl   = r.get('compound_pnl', r['pnl'])
+            roi    = cpnl / INITIAL_BALANCE * 100
+            wr_c   = 'g' if r['wr']     >= 55 else ('y' if r['wr'] >= 45 else 'r')
+            pnl_c  = 'g' if cpnl        >= 0  else 'r'
+            roi_c  = 'g' if roi         >= 0  else 'r'
+            dd_c   = 'r' if r['max_dd'] > 20  else ('y' if r['max_dd'] > 10 else 'g')
+            pf_c   = 'g' if r['pf']     >= 3  else ('y' if r['pf'] >= 2 else 'r')
+            sign   = '+' if cpnl >= 0 else ''
+            stp    = r.get('sl_then_tp', 0)
+            nl     = r['loss']
+            stp_pct = stp / nl * 100 if nl else 0
+            stp_c  = 'g' if stp_pct >= 50 else ('y' if stp_pct >= 30 else 'r')
             total_n += r['trades']; total_win += r['win']; total_loss += r['loss']
             total_cpnl += cpnl
             coin_rows += (
@@ -736,14 +744,19 @@ def _render_html() -> bytes:
                 f'<td class="{roi_c}">{sign}{roi:.0f}%</td>'
                 f'<td class="{dd_c}">{r["max_dd"]:.1f}%</td>'
                 f'<td class="{pf_c}">{r["pf"]:.2f}</td>'
+                f'<td class="{stp_c}" title="{stp_pct:.0f}% dari {nl} loss">'
+                f'{stp}/{nl} ({stp_pct:.0f}%)</td>'
                 f'<td class="g">{atr_str}</td>'
                 f'</tr>\n'
             )
 
     if total_n:
-        wr_tot  = total_win / total_n * 100
-        roi_tot = total_cpnl / INITIAL_BALANCE * 100
-        sign    = '+' if total_cpnl >= 0 else ''
+        wr_tot   = total_win / total_n * 100
+        roi_tot  = total_cpnl / INITIAL_BALANCE * 100
+        sign     = '+' if total_cpnl >= 0 else ''
+        stp_tot  = sum(r.get('sl_then_tp', 0) for r in res_cp if r.get('status') == 'ok')
+        nl_tot   = total_loss
+        stp_tot_pct = stp_tot / nl_tot * 100 if nl_tot else 0
         coin_rows += (
             f'<tr style="border-top:2px solid #30363d;font-weight:bold">'
             f'<td>TOTAL ({len(res_cp)} coin)</td>'
@@ -752,6 +765,7 @@ def _render_html() -> bytes:
             f'<td class="{"g" if total_cpnl>=0 else "r"}">{sign}${total_cpnl:.2f}</td>'
             f'<td class="{"g" if total_cpnl>=0 else "r"}">{sign}{roi_tot:.0f}%</td>'
             f'<td>—</td><td>—</td>'
+            f'<td>{stp_tot}/{nl_tot} ({stp_tot_pct:.0f}%)</td>'
             f'<td>—</td></tr>\n'
         )
 
@@ -759,9 +773,11 @@ def _render_html() -> bytes:
         <table>
           <tr>
             <th>Coin</th><th>Trade</th><th>WR%</th>
-            <th>PnL Compound</th><th>ROI%</th><th>MaxDD%</th><th>PF</th><th>ATR P25</th>
+            <th>PnL Compound</th><th>ROI%</th><th>MaxDD%</th><th>PF</th>
+            <th title="Dari trade yang SL, berapa yang harganya kemudian balik ke TP dalam 200 candle">SL→TP</th>
+            <th>ATR P25</th>
           </tr>
-          {coin_rows or '<tr><td colspan="8" class="y">Menunggu hasil pertama…</td></tr>'}
+          {coin_rows or '<tr><td colspan="9" class="y">Menunggu hasil pertama…</td></tr>'}
         </table>
     '''
 

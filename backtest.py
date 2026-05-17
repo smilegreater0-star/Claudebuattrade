@@ -792,6 +792,17 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
         else:
             in_trade_until_idx = mss_m5_idx + 300
 
+        # Setelah SL kena, apakah harga balik ke arah TP dalam 200 candle (~16 jam)?
+        sl_then_tp = False
+        if outcome == 'sl':
+            scan_end = min(in_trade_until_idx + 1 + 200, len(df_m5_full))
+            for k in range(in_trade_until_idx + 1, scan_end):
+                ck = df_m5_full.iloc[k]
+                if stype == "Long"  and float(ck['high']) >= final_tp:
+                    sl_then_tp = True; break
+                if stype == "Short" and float(ck['low'])  <= final_tp:
+                    sl_then_tp = True; break
+
         trades.append({
             'symbol'         : symbol,
             'type'           : stype,
@@ -811,6 +822,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             'atr_ratio'      : _atr_ratio,
             'entry_type'     : 'breaker' if bb is not None else 'fvg',
             'sl_dist_pct'    : round(dist / entry_price, 6) if entry_price > 0 else 0.0,
+            'sl_then_tp'     : sl_then_tp,
         })
 
         i = in_trade_until_idx + 1
@@ -872,7 +884,9 @@ def main():
             roi = total_pnl / INITIAL_BALANCE * 100
             avg_pnl = total_pnl / n
 
-            print(f"   Trade:{n} | W:{len(wins)} L:{len(losses)} | WR:{wr:.1f}% | PnL:${total_pnl:.2f} | ROI:{roi:.1f}% | MaxDD:{max_dd:.1f}%")
+            sl_tp = sum(1 for t in trades if t.get('sl_then_tp'))
+            sl_tp_str = f" | SL→TP:{sl_tp}/{len(losses)}" if losses else ""
+            print(f"   Trade:{n} | W:{len(wins)} L:{len(losses)} | WR:{wr:.1f}% | PnL:${total_pnl:.2f} | ROI:{roi:.1f}% | MaxDD:{max_dd:.1f}%{sl_tp_str}")
 
             coin_results.append({
                 'symbol': symbol, 'trades': n, 'win': len(wins), 'loss': len(losses),
