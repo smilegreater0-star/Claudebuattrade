@@ -132,21 +132,20 @@ def calc_p25_atr(df: pd.DataFrame) -> float:
 
 # ── Diagnostic scan ───────────────────────────────────────────────────────
 def _diagnose(symbol: str, df: pd.DataFrame, atr_thresh: float):
-    from backtest import (build_h1, find_last_swing_bos, calc_ema,
+    from backtest import (build_h1, find_last_swing_bos,
                           get_internal_gaps, replay_m5, check_bos_or_sweep)
     WARMUP = 2400; H1_WIN = 100; total = len(df)
-    scan_end = min(total - 1, WARMUP + 90 * 24 * 12)
-    c_bos = c_ema = c_fvg = c_fvg_touch = c_idm = c_bos2 = c_mss = 0
-    last_bos_key = None
+    c_bos = c_fvg = c_fvg_touch = c_idm = c_bos2 = c_mss = 0
+    # Rolling BOS state — cermin backtest_coin
+    active_bos_key = None; active_gaps = []; active_choch = None; active_stype = None
     i = WARMUP
-    while i < scan_end:
+    while i < total - 50:
         m5_win = df.iloc[max(0, i - H1_WIN * 12): i].reset_index(drop=True)
         df_h1  = build_h1(m5_win)
         if len(df_h1) < 52: i += 12; continue
         sh_h1, sl_h1 = find_last_swing_bos(df_h1)
         if not sh_h1 or not sl_h1: i += 12; continue
-        closed_h1 = df_h1.iloc[-2]; curr_h1 = df_h1.iloc[-1]
-        # 3-kandidat swing — Short menang jika keduanya fire (sama dengan bott_v4.py)
+        closed_h1 = df_h1.iloc[-2]
         is_long = False; is_short = False; swing_val = None; bos_idx = None
         for sh in sh_h1[-3:]:
             if closed_h1['close'] > sh['val']:
@@ -156,46 +155,58 @@ def _diagnose(symbol: str, df: pd.DataFrame, atr_thresh: float):
             if closed_h1['close'] < sl['val']:
                 is_short = True; swing_val = sl['val']
                 bos_idx = sh_h1[-1]['idx'] if sh_h1 else sl['idx']
-        if not (is_long or is_short) or swing_val is None: i += 12; continue
-        stype = 'Short' if is_short else 'Long'
-        bos_key = (stype, round(swing_val, 8))
-        if bos_key == last_bos_key: i += 12; continue
-        last_bos_key = bos_key; c_bos += 1
-        ema50 = calc_ema(df_h1['close'], 50).iloc[-1]
-        if stype == 'Long'  and curr_h1['close'] < ema50: i += 12; continue
-        if stype == 'Short' and curr_h1['close'] > ema50: i += 12; continue
-        c_ema += 1
-        gaps = get_internal_gaps(df_h1, stype, bos_idx)
-        if not gaps: i += 12; continue
-        c_fvg += 1
-        if stype == 'Long':
-            sl_below    = [s for s in sl_h1 if s['val'] < swing_val]
-            choch_level = sl_below[-1]['val'] if sl_below else None
-        else:
-            sh_above    = [s for s in sh_h1 if s['val'] > swing_val]
-            choch_level = sh_above[-1]['val'] if sh_above else None
-        scan_fvg_end = min(total - 1, i + 12 * 96)
-        seg_h = df.iloc[i:scan_fvg_end]['high'].to_numpy(float)
-        seg_l = df.iloc[i:scan_fvg_end]['low'].to_numpy(float)
-        seg_c = df.iloc[i:scan_fvg_end]['close'].to_numpy(float)
-        seg_len = len(seg_h); found_fvg_idx = -1; used_fvg = None; choch_hit = False
-        for fvg in gaps:
-            ft, fb = float(fvg['top']), float(fvg['bottom']); blk = 0
-            while blk < seg_len:
-                be = min(blk + 12, seg_len); bc = seg_c[be - 1]
-                if choch_level:
-                    if stype == 'Long'  and bc < choch_level: choch_hit = True; break
-                    if stype == 'Short' and bc > choch_level: choch_hit = True; break
-                if stype == 'Long'  and bc < fb: break
-                if stype == 'Short' and bc > ft: break
-                if stype == 'Long'  and seg_l[blk:be].min() <= ft:
-                    found_fvg_idx = i + blk; used_fvg = fvg; break
-                if stype == 'Short' and seg_h[blk:be].max() >= fb:
-                    found_fvg_idx = i + blk; used_fvg = fvg; break
-                blk += 12
-            if choch_hit or found_fvg_idx >= 0: break
-        if choch_hit: i += 12; continue
-        if found_fvg_idx < 0: i += 12 * 24; continue
+        if (is_long or is_short) and swing_val is not None:
+            stype_new = 'Short' if is_short else 'Long'
+            bos_key   = (stype_new, round(swing_val, 8))
+            if bos_key != active_bos_key:
+                if stype_new == 'Long':
+                    sl_below  = [s for s in sl_h1 if s['val'] < swing_val]
+                    choch_new = sl_below[-1]['val'] if sl_below else None
+                else:
+                    sh_above  = [s for s in sh_h1 if s['val'] > swing_val]
+                    choch_new = sh_above[-1]['val'] if sh_above else None
+                gaps_new = get_internal_gaps(df_h1, stype_new, len(df_h1) - 1)
+                if choch_new:
+                    if stype_new == 'Long':
+                        gaps_new = [g for g in gaps_new if g['bottom'] >= choch_new]
+                    else:
+                        gaps_new = [g for g in gaps_new if g['top'] <= choch_new]
+                if gaps_new: c_bos += 1
+                active_bos_key = bos_key; active_gaps = gaps_new
+                active_choch   = choch_new; active_stype = stype_new
+        if not active_gaps: i += 12; continue
+        blk_end_m5      = min(i + 12, total)
+        blk_close_slice = df['close'].iloc[i:blk_end_m5]
+        if len(blk_close_slice) > 0:
+            bc = float(blk_close_slice.iloc[-1])
+            if active_choch is not None:
+                if active_stype == 'Long'  and bc < active_choch:
+                    active_bos_key = None; active_gaps = []; active_choch = None; active_stype = None
+                    i += 12; continue
+                if active_stype == 'Short' and bc > active_choch:
+                    active_bos_key = None; active_gaps = []; active_choch = None; active_stype = None
+                    i += 12; continue
+        last_c = float(df['close'].iloc[blk_end_m5 - 1]) if blk_end_m5 > i else 0.0
+        active_gaps = [
+            g for g in active_gaps
+            if not (active_stype == 'Long'  and last_c < float(g['bottom']))
+            and not (active_stype == 'Short' and last_c > float(g['top']))
+        ]
+        if not active_gaps: i += 12; continue
+        c_fvg = c_bos  # FVG count = BOS count (every BOS with gaps qualifies)
+        found_fvg_idx = -1
+        for fvg in active_gaps:
+            ft, fb = float(fvg['top']), float(fvg['bottom'])
+            for k in range(i, blk_end_m5):
+                ck = df.iloc[k]
+                if active_stype == 'Long'  and float(ck['low'])  <= ft:
+                    found_fvg_idx = k; break
+                if active_stype == 'Short' and float(ck['high']) >= fb:
+                    found_fvg_idx = k; break
+            if found_fvg_idx >= 0: break
+        if found_fvg_idx < 0: i += 12; continue
+        stype = active_stype; choch_level = active_choch
+        active_bos_key = None; active_gaps = []; active_choch = None; active_stype = None
         c_fvg_touch += 1
         idm_end = min(total - 1, found_fvg_idx + 12 * 48)
         df_m5_idm = df.iloc[found_fvg_idx:idm_end].reset_index(drop=True)
@@ -222,14 +233,9 @@ def _diagnose(symbol: str, df: pd.DataFrame, atr_thresh: float):
         hits = (np.where(mss_closes > result['nfh'])[0] if stype == 'Long'
                 else np.where(mss_closes < result['nfl'])[0])
         if len(hits) == 0: i += 12 * 6; continue
-        mss_c = df_mss.iloc[hits[0]]
-        body = abs(float(mss_c['close']) - float(mss_c['open']))
-        rng  = abs(float(mss_c['high'])  - float(mss_c['low']))
-        if rng > 0 and body / rng < 0.30: i += 12; continue
         c_mss += 1; i += 12
 
-    _log_msg(f"  [DIAG] BOS:{c_bos}→EMA:{c_ema}→FVG:{c_fvg}"
-             f"→touch:{c_fvg_touch}→IDM:{c_idm}→BOS2:{c_bos2}→MSS:{c_mss}")
+    _log_msg(f"  [DIAG] BOS:{c_bos}→FVG_touch:{c_fvg_touch}→IDM:{c_idm}→BOS2:{c_bos2}→MSS:{c_mss}")
 
 
 # ── Helper: quarter + compound ────────────────────────────────────────────
