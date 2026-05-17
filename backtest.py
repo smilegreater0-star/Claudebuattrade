@@ -553,8 +553,8 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
                     sh_above  = [s for s in sh_h1 if s['val'] > swing_val]
                     choch_new = sh_above[-1]['val'] if sh_above else None
 
-                # FVG di dalam BOS baru, filter straddle CHOCH
-                gaps_new = get_internal_gaps(df_h1, stype_new, bos_idx)
+                # FVG: semua FVG fresh di H1 (tidak perlu dari range BOS tertentu)
+                gaps_new = get_internal_gaps(df_h1, stype_new, len(df_h1) - 1)
                 if choch_new:
                     if stype_new == "Long":
                         gaps_new = [g for g in gaps_new if g['bottom'] >= choch_new]
@@ -805,17 +805,18 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
         # Hitung sl_then_tp hanya jika TP tercapai SEBELUM CHOCH.
         sl_then_tp = False
         if outcome == 'sl':
-            scan_end = min(in_trade_until_idx + 1 + 200, len(df_m5_full))
+            scan_end = min(in_trade_until_idx + 1 + 500, len(df_m5_full))
             for k in range(in_trade_until_idx + 1, scan_end):
-                ck     = df_m5_full.iloc[k]
-                low_k  = float(ck['low'])
-                high_k = float(ck['high'])
+                ck      = df_m5_full.iloc[k]
+                close_k = float(ck['close'])
+                low_k   = float(ck['low'])
+                high_k  = float(ck['high'])
                 if stype == "Long":
-                    if choch_level and low_k  <= choch_level: break  # CHOCH duluan → stop
+                    if choch_level and close_k < choch_level: break  # CHOCH duluan → stop
                     if high_k >= final_tp: sl_then_tp = True; break
                 else:
-                    if choch_level and high_k >= choch_level: break  # CHOCH duluan → stop
-                    if low_k  <= final_tp: sl_then_tp = True; break
+                    if choch_level and close_k > choch_level: break  # CHOCH duluan → stop
+                    if low_k <= final_tp: sl_then_tp = True; break
 
         trades.append({
             'symbol'         : symbol,
