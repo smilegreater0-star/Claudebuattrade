@@ -20,7 +20,7 @@ INITIAL_BALANCE = 30.0
 RISK_PCT        = 0.01      # 1% risk per trade
 LEVERAGE        = 10
 TAKER_FEE       = 0.00055   # 0.055% per side (Bybit USDT perp)
-MIN_RR          = 2.8
+MIN_RR          = 1.5   # 1:2 = 2.0, 1:3 = 3.0 — cukup untuk contrarian
 MIN_DIST_PCT    = 0.005     # minimum SL distance 0.5%
 
 DATA_DIR = "/home/claude/fulldata"
@@ -423,11 +423,12 @@ def simulate_trade(df_m5, entry_idx, entry, sl, tp, stype, balance):
     Simulasi trade dari entry_idx+1 sampai TP/SL kena.
     Return: (pnl_usd, outcome, exit_price, exit_ts)
     """
-    dist = abs(entry - sl)
-    if dist == 0:
+    original_dist = abs(entry - sl)
+    if original_dist == 0:
         return 0, 'skip', entry, None
 
-    # Minimum SL distance 0.5%
+    # Minimum SL distance 0.5% — widen untuk keperluan qty/fee, tapi R:R tetap pakai original
+    dist = original_dist
     min_dist = entry * MIN_DIST_PCT
     if dist < min_dist:
         dist = min_dist
@@ -440,9 +441,9 @@ def simulate_trade(df_m5, entry_idx, entry, sl, tp, stype, balance):
     if stype == "Long" and tp <= entry:   return 0, 'skip', entry, None
     if stype == "Short" and tp >= entry:  return 0, 'skip', entry, None
 
-    # R:R check
+    # R:R check pakai original_dist (sebelum widen) — supaya 1:2, 1:3 dll tidak di-reject
     tp_dist = abs(tp - entry)
-    if tp_dist / dist < MIN_RR:           return 0, 'skip', entry, None
+    if tp_dist / original_dist < MIN_RR:  return 0, 'skip', entry, None
 
     risk_usd = balance * RISK_PCT
     qty      = risk_usd / dist            # kontrak (qty in coin)
@@ -768,13 +769,6 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
 
         dist = tp_dist / 3.0   # = abs(entry - sl)
         if dist == 0: i += 12; continue
-
-        # Kalau CHOCH terlalu dekat, SL tidak bisa memenuhi 0.5% min → SimSkip di simulate_trade.
-        # Skip di sini supaya tidak masuk simulate_trade dan terhitung SimSkip.
-        if dist < entry_price * MIN_DIST_PCT:
-            c_sim_skip += 1; i += 12; continue
-
-        # min_dist sudah terpenuhi — tidak perlu widen lagi
 
         # ── Simulasi (dari mss_m5_idx, arah dibalik) ──
         pnl, outcome, exit_p, exit_ts = simulate_trade(
