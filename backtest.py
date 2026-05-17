@@ -746,7 +746,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             #     i += 12; continue
 
         # ── Entry: Contrarian — fade the MSS ──
-        # Entry = MSS close. SL = 1/3 × choch_dist. TP = 5× SL (R:R 1:5).
+        # Entry = MSS close. SL = choch_dist/3. TP = CHOCH level (R:R 3:1, BE WR 25%).
         entry_price = float(mss_candle['close'])
         trade_stype = "Short" if stype == "Long" else "Long"
 
@@ -763,11 +763,11 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             sl_dist = min_dist
 
         if trade_stype == "Short":
-            sl_price = entry_price + sl_dist       # SL 1/3 choch_dist di atas entry
-            final_tp = entry_price - sl_dist * 5   # TP 5× SL ke bawah
+            sl_price = entry_price + sl_dist   # SL 1/3 choch_dist di atas entry
+            final_tp = choch_level             # TP tepat di CHOCH (R:R = 3:1)
         else:
-            sl_price = entry_price - sl_dist       # SL 1/3 choch_dist di bawah entry
-            final_tp = entry_price + sl_dist * 5   # TP 5× SL ke atas
+            sl_price = entry_price - sl_dist   # SL 1/3 choch_dist di bawah entry
+            final_tp = choch_level             # TP tepat di CHOCH (R:R = 3:1)
 
         # ── Simulasi (dari mss_m5_idx, arah dibalik) ──
         pnl, outcome, exit_p, exit_ts = simulate_trade(
