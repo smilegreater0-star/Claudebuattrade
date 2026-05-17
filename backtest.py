@@ -418,14 +418,19 @@ def find_breaker_block(df_m5, mss_ts_ms, stype):
 # SIMULASI EKSEKUSI TRADE
 # ============================================================
 
-def simulate_trade(df_m5, entry_idx, entry, sl, tp, stype, balance):
+def simulate_trade(df_m5, entry_idx, entry, sl, tp, stype, balance, _skip_reasons=None):
     """
     Simulasi trade dari entry_idx+1 sampai TP/SL kena.
     Return: (pnl_usd, outcome, exit_price, exit_ts)
     """
+    def _skip(reason):
+        if _skip_reasons is not None:
+            _skip_reasons[reason] = _skip_reasons.get(reason, 0) + 1
+        return 0, 'skip', entry, None
+
     original_dist = abs(entry - sl)
     if original_dist == 0:
-        return 0, 'skip', entry, None
+        return _skip('dist0')
 
     # Minimum SL distance 0.5% — widen untuk keperluan qty/fee, tapi R:R tetap pakai original
     dist = original_dist
@@ -438,12 +443,12 @@ def simulate_trade(df_m5, entry_idx, entry, sl, tp, stype, balance):
             sl = entry + dist
 
     # Validasi TP arah
-    if stype == "Long" and tp <= entry:   return 0, 'skip', entry, None
-    if stype == "Short" and tp >= entry:  return 0, 'skip', entry, None
+    if stype == "Long" and tp <= entry:   return _skip('tp_dir')
+    if stype == "Short" and tp >= entry:  return _skip('tp_dir')
 
     # R:R check pakai original_dist (sebelum widen) — supaya 1:2, 1:3 dll tidak di-reject
     tp_dist = abs(tp - entry)
-    if tp_dist / original_dist < MIN_RR:  return 0, 'skip', entry, None
+    if tp_dist / original_dist < MIN_RR:  return _skip(f'rr_{tp_dist/original_dist:.2f}')
 
     risk_usd = balance * RISK_PCT
     qty      = risk_usd / dist            # kontrak (qty in coin)
@@ -510,6 +515,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
     c_mss_found  = 0   # MSS terdeteksi di dalam backtest (setelah in-trade skip)
     c_dir_fail   = 0   # SL direction validation gagal
     c_sim_skip   = 0   # simulate_trade return 'skip'
+    c_simskip_reasons = {}   # debug: kenapa simulate_trade skip
 
     i = WARMUP_M5
     while i < total - 50:
@@ -771,7 +777,8 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
 
         # ── Simulasi (dari mss_m5_idx, arah dibalik) ──
         pnl, outcome, exit_p, exit_ts = simulate_trade(
-            df_m5_full, mss_m5_idx, entry_price, sl_price, final_tp, trade_stype, balance
+            df_m5_full, mss_m5_idx, entry_price, sl_price, final_tp, trade_stype, balance,
+            _skip_reasons=c_simskip_reasons
         )
         if outcome == 'skip':
             c_sim_skip += 1; i += 12; continue
@@ -843,11 +850,12 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
     c_traded    = len(trades)
     c_intrade   = c_mss_found - c_dir_fail - c_sim_skip - c_traded
     return trades, balance, {
-        'mss_found' : c_mss_found,
-        'traded'    : c_traded,
-        'dir_fail'  : c_dir_fail,
-        'sim_skip'  : c_sim_skip,
-        'intrade'   : max(0, c_intrade),   # MSS ditemukan tapi bot sudah dalam trade lain
+        'mss_found'       : c_mss_found,
+        'traded'          : c_traded,
+        'dir_fail'        : c_dir_fail,
+        'sim_skip'        : c_sim_skip,
+        'intrade'         : max(0, c_intrade),
+        'simskip_reasons' : c_simskip_reasons,
     }
 
 

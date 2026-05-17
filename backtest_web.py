@@ -462,9 +462,12 @@ def _run():
             f"PnL:${pnl:.2f} | ROI:{roi:.1f}% | MaxDD:{max_dd:.1f}% | PF:{pf:.2f} | "
             f"SL→TP:{sl_then_tp} CHOCH:{sl_choch} Drift:{sl_drift} ({choch_pct:.0f}% CHOCH)"
         )
+        skip_rsn = dbg.get('simskip_reasons', {})
+        rsn_str  = ' '.join(f"{k}:{v}" for k, v in sorted(skip_rsn.items())) if skip_rsn else ''
         _log_msg(
             f"  MSS→Trade: {dbg['mss_found']} ditemukan → {n} traded"
             f" | skip: InTrade:{dbg['intrade']} DirFail:{dbg['dir_fail']} SimSkip:{dbg['sim_skip']}"
+            + (f" [{rsn_str}]" if rsn_str else "")
         )
         mae_trades = [t['mae_r'] for t in trades if t.get('sl_then_tp') and t.get('mae_r', 0) > 0]
         if mae_trades:
