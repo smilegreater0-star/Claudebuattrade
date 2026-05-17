@@ -757,18 +757,18 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             if stype == "Long":
                 if low_j <= sl_price:   # SL ditembus sebelum fill → skip
                     break
-                if high_j >= final_tp:  # TP tercapai tanpa fill BB → opportunity gone
-                    break
-                if low_j <= bb_entry:   # harga pullback ke BB → fill
+                if low_j <= bb_entry:   # harga pullback ke BB → fill (cek SEBELUM TP)
                     fill_idx = j
+                    break
+                if high_j >= final_tp:  # TP tercapai tanpa mampir BB → opportunity gone
                     break
             else:  # Short
                 if high_j >= sl_price:  # SL ditembus sebelum fill → skip
                     break
-                if low_j <= final_tp:   # TP tercapai tanpa fill BB → opportunity gone
-                    break
-                if high_j >= bb_entry:  # harga bounce ke BB → fill
+                if high_j >= bb_entry:  # harga bounce ke BB → fill (cek SEBELUM TP)
                     fill_idx = j
+                    break
+                if low_j <= final_tp:   # TP tercapai tanpa mampir BB → opportunity gone
                     break
 
         if fill_idx is None:
