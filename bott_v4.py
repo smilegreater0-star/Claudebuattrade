@@ -943,6 +943,16 @@ def run_bot():
                                 'entry_time': _time.time(),
                             }
                             del pending[coin]
+                        elif (setup['limit_side'] == 'Buy'  and curr_h1['close'] >= setup['limit_tp']) or \
+                             (setup['limit_side'] == 'Sell' and curr_h1['close'] <= setup['limit_tp']):
+                            # Harga sudah melewati TP tanpa fill BB → opportunity gone
+                            try:
+                                session.cancel_order(category=CATEGORY, symbol=coin, orderId=order_id)
+                                print(f"🚫 {coin}: Harga ke TP ({setup['limit_tp']:.6f}) tanpa fill BB "
+                                      f"@ {setup['limit_entry']:.6f} — order dibatalkan.")
+                            except Exception as _e:
+                                print(f"⚠️ {coin}: Gagal cancel limit: {_e}")
+                            del pending[coin]
                         elif elapsed_min > 150:  # 30 candle × 5 mnt = 150 mnt
                             try:
                                 session.cancel_order(category=CATEGORY, symbol=coin, orderId=order_id)
