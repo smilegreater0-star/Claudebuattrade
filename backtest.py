@@ -769,10 +769,10 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
 
         if stype == "Long":
             sl_price = limit_entry - dist * 5   # SL 5R di bawah entry
-            final_tp = limit_entry + dist * 3   # TP 3R di atas entry
+            final_tp = limit_entry + dist * 5   # TP 5R di atas entry
         else:
             sl_price = limit_entry + dist * 5   # SL 5R di atas entry
-            final_tp = limit_entry - dist * 3   # TP 3R di bawah entry
+            final_tp = limit_entry - dist * 5   # TP 5R di bawah entry
 
         # Scan untuk limit fill (max 60 candle = 5 jam)
         FILL_TIMEOUT = 60
