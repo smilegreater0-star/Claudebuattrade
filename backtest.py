@@ -540,10 +540,10 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
 
         stype = "Short" if is_short else "Long"
 
-        # EMA50 filter
+        # EMA50 filter (DISABLED — sinkron live bot)
         ema50 = calc_ema(df_h1['close'], 50).iloc[-1]
-        if stype == "Long"  and curr_h1['close'] < ema50: i += 12; continue
-        if stype == "Short" and curr_h1['close'] > ema50: i += 12; continue
+        # if stype == "Long"  and curr_h1['close'] < ema50: i += 12; continue
+        # if stype == "Short" and curr_h1['close'] > ema50: i += 12; continue
 
         bos_key = (stype, round(swing_val, 8))
         if bos_key == last_bos_key:
@@ -700,21 +700,21 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
         if mss_candle is None or mss_m5_idx < 0:
             i += 12 * 6; continue
 
-        # Filter MSS strength
+        # Filter MSS strength (DISABLED — sinkron live bot)
         mss_body  = abs(float(mss_candle['close']) - float(mss_candle['open']))
         mss_range = abs(float(mss_candle['high'])  - float(mss_candle['low']))
-        if mss_range > 0 and mss_body / mss_range < 0.30:
-            i += 12; continue
+        # if mss_range > 0 and mss_body / mss_range < 0.30:
+        #     i += 12; continue
         _mss_body_ratio = round(mss_body / mss_range, 4) if mss_range > 0 else 0.0
 
-        # Filter volume — window 20 candle termasuk MSS (identik dengan tail(20) di live bot)
+        # Filter volume (DISABLED — sinkron live bot)
         vol_window = df_m5_full.iloc[max(0, mss_m5_idx - 19): mss_m5_idx + 1]
         avg_vol = vol_window['vol'].mean()
         _vol_ratio = round(float(mss_candle['vol']) / avg_vol, 4) if avg_vol > 0 else 0.0
-        if avg_vol > 0 and float(mss_candle['vol']) / avg_vol < 0.25:
-            i += 12; continue
+        # if avg_vol > 0 and float(mss_candle['vol']) / avg_vol < 0.25:
+        #     i += 12; continue
 
-        # Filter ATR — window 20 candle termasuk MSS, ref_price = MSS close (identik live bot)
+        # Filter ATR (DISABLED — sinkron live bot)
         atr_thresh = ATR_THRESHOLD.get(symbol, 0.0035)
         atr_window = df_m5_full.iloc[max(0, mss_m5_idx - 19): mss_m5_idx + 1]
         _atr_ratio = 0.0
@@ -726,8 +726,8 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             ref_price = float(mss_candle['close'])
             if atr_thresh > 0 and ref_price > 0:
                 _atr_ratio = round((atr_val / ref_price) / atr_thresh, 3)
-            if ref_price > 0 and (atr_val / ref_price) < atr_thresh:
-                i += 12; continue
+            # if ref_price > 0 and (atr_val / ref_price) < atr_thresh:
+            #     i += 12; continue
 
         # ── Entry: Market order di MSS close (sinkron dengan live bot) ──
         # Live bot pakai MARKET order saat MSS close → fill di harga pasar saat itu.
