@@ -922,7 +922,7 @@ def main():
                 for r in mae_trades:
                     lo = int(r); key = f"{lo}-{lo+1}R"
                     buckets[key] = buckets.get(key, 0) + 1
-                bkt_str = "  ".join(f"{k}:{v}" for k, v in sorted(buckets.items()))
+                bkt_str = "  ".join(f"{k}:{v}" for k, v in sorted(buckets.items(), key=lambda x: int(x[0].split('-')[0])))
                 print(f"   MAE (SL→TP={sl_tp}): {bkt_str}")
 
             coin_results.append({
