@@ -768,10 +768,10 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             dist = min_dist
 
         if trade_stype == "Short":
-            sl_price = entry_price + dist * 2     # SL 2× dist di atas entry
+            sl_price = entry_price + dist * 3     # SL 3× dist di atas entry
             final_tp = entry_price - dist * 5     # TP 5× dist ke bawah
         else:
-            sl_price = entry_price - dist * 2     # SL 2× dist di bawah entry
+            sl_price = entry_price - dist * 3     # SL 3× dist di bawah entry
             final_tp = entry_price + dist * 5     # TP 5× dist ke atas
 
         # ── Simulasi (dari mss_m5_idx, arah dibalik) ──
