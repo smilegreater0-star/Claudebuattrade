@@ -778,9 +778,9 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             in_trade_until_idx = mss_m5_idx + 300
 
         # Setelah SL kena, apakah harga balik ke TP sebelum CHOCH?
-        # choch_level sudah dihitung saat BOS terbentuk (swing low/high di luar range BOS).
-        # Hitung sl_then_tp hanya jika TP tercapai SEBELUM CHOCH.
+        # Tiga hasil: sl_then_tp (TP duluan), sl_choch (CHOCH duluan), sl_drift (keduanya tidak)
         sl_then_tp = False
+        sl_choch   = False
         if outcome == 'sl':
             scan_end = min(in_trade_until_idx + 1 + 500, len(df_m5_full))
             for k in range(in_trade_until_idx + 1, scan_end):
@@ -789,10 +789,10 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
                 low_k   = float(ck['low'])
                 high_k  = float(ck['high'])
                 if stype == "Long":
-                    if choch_level and close_k < choch_level: break  # CHOCH duluan → stop
+                    if choch_level and close_k < choch_level: sl_choch = True; break
                     if high_k >= final_tp: sl_then_tp = True; break
                 else:
-                    if choch_level and close_k > choch_level: break  # CHOCH duluan → stop
+                    if choch_level and close_k > choch_level: sl_choch = True; break
                     if low_k <= final_tp: sl_then_tp = True; break
 
         trades.append({
@@ -815,6 +815,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             'entry_type'     : 'breaker' if bb is not None else 'fvg',
             'sl_dist_pct'    : round(dist / entry_price, 6) if entry_price > 0 else 0.0,
             'sl_then_tp'     : sl_then_tp,
+            'sl_choch'       : sl_choch,
         })
 
         i = in_trade_until_idx + 1
@@ -876,9 +877,13 @@ def main():
             roi = total_pnl / INITIAL_BALANCE * 100
             avg_pnl = total_pnl / n
 
-            sl_tp = sum(1 for t in trades if t.get('sl_then_tp'))
-            sl_tp_str = f" | SL→TP:{sl_tp}/{len(losses)}" if losses else ""
-            print(f"   Trade:{n} | W:{len(wins)} L:{len(losses)} | WR:{wr:.1f}% | PnL:${total_pnl:.2f} | ROI:{roi:.1f}% | MaxDD:{max_dd:.1f}%{sl_tp_str}")
+            n_sl      = len(losses)
+            sl_tp     = sum(1 for t in trades if t.get('sl_then_tp'))
+            sl_choch  = sum(1 for t in trades if t.get('sl_choch'))
+            sl_drift  = n_sl - sl_tp - sl_choch
+            sl_str    = (f" | SL→TP:{sl_tp} CHOCH:{sl_choch} Drift:{sl_drift}"
+                         f" ({sl_choch*100//n_sl if n_sl else 0}% CHOCH)") if n_sl else ""
+            print(f"   Trade:{n} | W:{len(wins)} L:{n_sl} | WR:{wr:.1f}% | PnL:${total_pnl:.2f} | ROI:{roi:.1f}% | MaxDD:{max_dd:.1f}%{sl_str}")
 
             coin_results.append({
                 'symbol': symbol, 'trades': n, 'win': len(wins), 'loss': len(losses),
