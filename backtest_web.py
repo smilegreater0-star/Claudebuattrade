@@ -466,6 +466,14 @@ def _run():
             f"  MSS→Trade: {dbg['mss_found']} ditemukan → {n} traded"
             f" | skip: InTrade:{dbg['intrade']} DirFail:{dbg['dir_fail']} SimSkip:{dbg['sim_skip']}"
         )
+        mae_trades = [t['mae_r'] for t in trades if t.get('sl_then_tp') and t.get('mae_r', 0) > 0]
+        if mae_trades:
+            buckets = {}
+            for r in mae_trades:
+                lo = int(r); key = f"{lo}-{lo+1}R"
+                buckets[key] = buckets.get(key, 0) + 1
+            bkt_str = "  ".join(f"{k}:{v}" for k, v in sorted(buckets.items()))
+            _log_msg(f"  MAE (SL→TP={sl_then_tp}): {bkt_str}")
 
         results.append({
             'symbol': symbol, 'status': 'ok',

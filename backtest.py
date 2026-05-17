@@ -790,16 +790,29 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
         # SL→TP DIAG — pakai arah trade_stype (bukan stype setup)
         sl_then_tp = False
         sl_choch   = False
+        mae_r = 0.0   # Maximum Adverse Excursion dalam satuan R (1R = sl_dist)
         if outcome == 'sl':
             scan_end = min(in_trade_until_idx + 1 + 500, len(df_m5_full))
+            tp_hit_idx = None
             for k in range(in_trade_until_idx + 1, scan_end):
                 ck      = df_m5_full.iloc[k]
                 low_k   = float(ck['low'])
                 high_k  = float(ck['high'])
                 if trade_stype == "Short":
-                    if low_k  <= final_tp: sl_then_tp = True; break
+                    if low_k  <= final_tp: sl_then_tp = True; tp_hit_idx = k; break
                 else:
-                    if high_k >= final_tp: sl_then_tp = True; break
+                    if high_k >= final_tp: sl_then_tp = True; tp_hit_idx = k; break
+
+            if sl_then_tp and tp_hit_idx is not None and sl_dist > 0:
+                # MAE: harga terjauh dari entry ke arah adverse (entry→SL→lebih jauh)
+                # dalam rentang entry sampai TP hit
+                window = df_m5_full.iloc[mss_m5_idx : tp_hit_idx + 1]
+                if trade_stype == "Short":
+                    mae_price = float(window['high'].max())
+                    mae_r = (mae_price - entry_price) / sl_dist
+                else:
+                    mae_price = float(window['low'].min())
+                    mae_r = (entry_price - mae_price) / sl_dist
 
         trades.append({
             'symbol'         : symbol,
@@ -822,6 +835,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             'sl_dist_pct'    : round(sl_dist / entry_price, 6) if entry_price > 0 else 0.0,
             'sl_then_tp'     : sl_then_tp,
             'sl_choch'       : sl_choch,
+            'mae_r'          : round(mae_r, 2),   # R adverse sebelum balik ke TP (0 jika tidak sl_then_tp)
         })
 
         i = in_trade_until_idx + 1
@@ -901,6 +915,15 @@ def main():
             print(f"   Trade:{n} | W:{len(wins)} L:{n_sl} | WR:{wr:.1f}% | PnL:${total_pnl:.2f} | ROI:{roi:.1f}% | MaxDD:{max_dd:.1f}%{sl_str}")
             print(f"   MSS→Trade: {dbg['mss_found']} ditemukan → {n} traded"
                   f" | skip: InTrade:{dbg['intrade']} DirFail:{dbg['dir_fail']} SimSkip:{dbg['sim_skip']}")
+            # MAE bucket untuk sl_then_tp trades
+            mae_trades = [t['mae_r'] for t in trades if t.get('sl_then_tp') and t.get('mae_r', 0) > 0]
+            if mae_trades:
+                buckets = {}
+                for r in mae_trades:
+                    lo = int(r); key = f"{lo}-{lo+1}R"
+                    buckets[key] = buckets.get(key, 0) + 1
+                bkt_str = "  ".join(f"{k}:{v}" for k, v in sorted(buckets.items()))
+                print(f"   MAE (SL→TP={sl_tp}): {bkt_str}")
 
             coin_results.append({
                 'symbol': symbol, 'trades': n, 'win': len(wins), 'loss': len(losses),
