@@ -438,6 +438,7 @@ def _run():
         wins      = [t for t in trades if t['outcome'] == 'tp']
         losses    = [t for t in trades if t['outcome'] == 'sl']
         sl_then_tp = sum(1 for t in trades if t.get('sl_then_tp'))
+        sl_choch   = sum(1 for t in trades if t.get('sl_choch'))
         pnl    = sum(t['pnl_usd'] for t in trades)
         wr     = len(wins) / n * 100
         roi    = pnl / INITIAL_BALANCE * 100
@@ -453,22 +454,25 @@ def _run():
         gl = abs(sum(t['pnl_usd'] for t in trades if t['pnl_usd'] < 0))
         pf = gw / gl if gl > 0 else 99.0
 
-        sl_tp_pct = sl_then_tp / len(losses) * 100 if losses else 0
+        nl = len(losses)
+        sl_drift   = nl - sl_then_tp - sl_choch
+        choch_pct  = sl_choch / nl * 100 if nl else 0
         _log_msg(
-            f"  ✅ Trade:{n} | W:{len(wins)} L:{len(losses)} | WR:{wr:.1f}% | "
+            f"  ✅ Trade:{n} | W:{len(wins)} L:{nl} | WR:{wr:.1f}% | "
             f"PnL:${pnl:.2f} | ROI:{roi:.1f}% | MaxDD:{max_dd:.1f}% | PF:{pf:.2f} | "
-            f"SL→TP:{sl_then_tp}/{len(losses)} ({sl_tp_pct:.0f}%)"
+            f"SL→TP:{sl_then_tp} CHOCH:{sl_choch} Drift:{sl_drift} ({choch_pct:.0f}% CHOCH)"
         )
 
         results.append({
             'symbol': symbol, 'status': 'ok',
-            'trades': n, 'win': len(wins), 'loss': len(losses),
+            'trades': n, 'win': len(wins), 'loss': nl,
             'wr': wr, 'pnl': pnl, 'roi': roi,
             'max_dd': max_dd, 'pf': pf, 'final_bal': final_bal,
             'longs': len([t for t in trades if t['type'] == 'Long']),
             'shorts': len([t for t in trades if t['type'] == 'Short']),
             'p25_atr': p25_atr,
             'sl_then_tp': sl_then_tp,
+            'sl_choch':   sl_choch,
             'win_loss': _win_loss_analysis(trades),
         })
         all_trades_list.extend(trades)
@@ -736,9 +740,12 @@ def _render_html() -> bytes:
             pf_c   = 'g' if r['pf']     >= 3  else ('y' if r['pf'] >= 2 else 'r')
             sign   = '+' if cpnl >= 0 else ''
             stp    = r.get('sl_then_tp', 0)
+            schoch = r.get('sl_choch', 0)
             nl     = r['loss']
-            stp_pct = stp / nl * 100 if nl else 0
-            stp_c  = 'g' if stp_pct >= 50 else ('y' if stp_pct >= 30 else 'r')
+            sdrift = nl - stp - schoch
+            choch_pct = schoch / nl * 100 if nl else 0
+            stp_c  = 'g' if stp / nl * 100 >= 30 else 'y' if stp / nl * 100 >= 15 else 'r' if nl else 'g'
+            choch_c = 'g' if choch_pct >= 50 else ('y' if choch_pct >= 30 else 'r')
             total_n += r['trades']; total_win += r['win']; total_loss += r['loss']
             total_cpnl += cpnl
             coin_rows += (
@@ -750,19 +757,24 @@ def _render_html() -> bytes:
                 f'<td class="{roi_c}">{sign}{roi:.0f}%</td>'
                 f'<td class="{dd_c}">{r["max_dd"]:.1f}%</td>'
                 f'<td class="{pf_c}">{r["pf"]:.2f}</td>'
-                f'<td class="{stp_c}" title="{stp_pct:.0f}% dari {nl} loss">'
-                f'{stp}/{nl} ({stp_pct:.0f}%)</td>'
+                f'<td class="{stp_c}" title="SL→TP: {stp} | CHOCH: {schoch} | Drift: {sdrift}">'
+                f'<small>TP:{stp} CH:{schoch} Dr:{sdrift}</small></td>'
+                f'<td class="{choch_c}" title="{choch_pct:.0f}% dari {nl} loss kena CHOCH">'
+                f'{choch_pct:.0f}%</td>'
                 f'<td class="g">{atr_str}</td>'
                 f'</tr>\n'
             )
 
     if total_n:
-        wr_tot   = total_win / total_n * 100
-        roi_tot  = total_cpnl / INITIAL_BALANCE * 100
-        sign     = '+' if total_cpnl >= 0 else ''
-        stp_tot  = sum(r.get('sl_then_tp', 0) for r in res_cp if r.get('status') == 'ok')
-        nl_tot   = total_loss
-        stp_tot_pct = stp_tot / nl_tot * 100 if nl_tot else 0
+        wr_tot    = total_win / total_n * 100
+        roi_tot   = total_cpnl / INITIAL_BALANCE * 100
+        sign      = '+' if total_cpnl >= 0 else ''
+        ok_res    = [r for r in res_cp if r.get('status') == 'ok']
+        stp_tot   = sum(r.get('sl_then_tp', 0) for r in ok_res)
+        schoch_tot = sum(r.get('sl_choch', 0) for r in ok_res)
+        nl_tot    = total_loss
+        sdrift_tot = nl_tot - stp_tot - schoch_tot
+        choch_tot_pct = schoch_tot / nl_tot * 100 if nl_tot else 0
         coin_rows += (
             f'<tr style="border-top:2px solid #30363d;font-weight:bold">'
             f'<td>TOTAL ({len(res_cp)} coin)</td>'
@@ -771,7 +783,8 @@ def _render_html() -> bytes:
             f'<td class="{"g" if total_cpnl>=0 else "r"}">{sign}${total_cpnl:.2f}</td>'
             f'<td class="{"g" if total_cpnl>=0 else "r"}">{sign}{roi_tot:.0f}%</td>'
             f'<td>—</td><td>—</td>'
-            f'<td>{stp_tot}/{nl_tot} ({stp_tot_pct:.0f}%)</td>'
+            f'<td><small>TP:{stp_tot} CH:{schoch_tot} Dr:{sdrift_tot}</small></td>'
+            f'<td>{choch_tot_pct:.0f}%</td>'
             f'<td>—</td></tr>\n'
         )
 
@@ -780,10 +793,11 @@ def _render_html() -> bytes:
           <tr>
             <th>Coin</th><th>Trade</th><th>WR%</th>
             <th>PnL Compound</th><th>ROI%</th><th>MaxDD%</th><th>PF</th>
-            <th title="Dari trade yang SL, berapa yang harganya kemudian balik ke TP dalam 200 candle">SL→TP</th>
+            <th title="SL→TP: balik ke TP setelah SL | CHOCH: struktur berbalik | Drift: ambiguous">SL Breakdown</th>
+            <th title="Persen loss yang kena CHOCH (struktur beneran balik)">CHOCH%</th>
             <th>ATR P25</th>
           </tr>
-          {coin_rows or '<tr><td colspan="9" class="y">Menunggu hasil pertama…</td></tr>'}
+          {coin_rows or '<tr><td colspan="10" class="y">Menunggu hasil pertama…</td></tr>'}
         </table>
     '''
 
