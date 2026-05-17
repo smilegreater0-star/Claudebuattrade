@@ -752,7 +752,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             #     i += 12; continue
 
         # ── Entry: Contrarian — fade the MSS ──
-        # Entry = MSS close. SL = choch_dist/3. TP = CHOCH level (R:R 3:1, BE WR 25%).
+        # Entry = MSS close. SL = 4/3 × choch_dist (4R). TP = 2× SL (R:R 2:1, BE WR 33%).
         entry_price = float(mss_candle['close'])
         trade_stype = "Short" if stype == "Long" else "Long"
 
@@ -761,25 +761,19 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
         choch_dist = abs(entry_price - choch_level)
         if choch_dist == 0: i += 12; continue
 
-        sl_dist = choch_dist / 3
+        sl_dist = choch_dist * 4 / 3   # 4R (4× old 1R unit = choch_dist/3)
 
-        # Skip jika CHOCH terlalu dekat (choch_dist < 3× min_dist → R:R akan jelek setelah widening)
+        # Skip jika sl_dist terlalu kecil (< min_dist → posisi terlalu besar)
         min_dist = entry_price * MIN_DIST_PCT
         if sl_dist < min_dist:
             c_dir_fail += 1; i += 12; continue
 
         if trade_stype == "Short":
-            sl_price = entry_price + sl_dist   # SL 1/3 choch_dist di atas entry
-            final_tp = choch_level             # TP tepat di CHOCH (R:R = 3:1)
+            sl_price = entry_price + sl_dist       # SL 4R di atas entry
+            final_tp = entry_price - sl_dist * 2  # TP 2× SL ke bawah (R:R 2:1)
         else:
-            sl_price = entry_price - sl_dist   # SL 1/3 choch_dist di bawah entry
-            final_tp = choch_level             # TP tepat di CHOCH (R:R = 3:1)
-
-        # Validasi TP arah: jika CHOCH sudah di sisi yang salah (price melewati CHOCH dalam WAIT_MSS)
-        if trade_stype == "Short" and choch_level >= entry_price:
-            c_dir_fail += 1; i += 12; continue
-        if trade_stype == "Long"  and choch_level <= entry_price:
-            c_dir_fail += 1; i += 12; continue
+            sl_price = entry_price - sl_dist       # SL 4R di bawah entry
+            final_tp = entry_price + sl_dist * 2  # TP 2× SL ke atas (R:R 2:1)
 
         # ── Simulasi (dari mss_m5_idx, arah dibalik) ──
         pnl, outcome, exit_p, exit_ts = simulate_trade(
