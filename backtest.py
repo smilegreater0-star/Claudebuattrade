@@ -299,7 +299,7 @@ def replay_m5(df, stype):
     idm_start_idx  = 0
 
     i = 0
-    while i < len(df) - 1:
+    while i < len(df):
         c = df.iloc[i]
 
         if stype == "Long":
