@@ -769,11 +769,12 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
         dist = tp_dist / 5.0   # = abs(entry - sl)
         if dist == 0: i += 12; continue
 
-        # Enforce min_dist — kalau jarak terlalu kecil, perlebar SL dan scale TP
-        min_dist = entry_price * MIN_DIST_PCT
-        if dist < min_dist:
-            dist     = min_dist
-            sl_price = (entry_price + dist) if trade_stype == "Short" else (entry_price - dist)
+        # Kalau CHOCH terlalu dekat, SL tidak bisa memenuhi 0.5% min → SimSkip di simulate_trade.
+        # Skip di sini supaya tidak masuk simulate_trade dan terhitung SimSkip.
+        if dist < entry_price * MIN_DIST_PCT:
+            c_sim_skip += 1; i += 12; continue
+
+        # min_dist sudah terpenuhi — tidak perlu widen lagi
 
         # ── Simulasi (dari mss_m5_idx, arah dibalik) ──
         pnl, outcome, exit_p, exit_ts = simulate_trade(
