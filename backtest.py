@@ -757,10 +757,10 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
 
         sl_dist = choch_dist / 3
 
-        # Enforce minimum SL distance
+        # Skip jika CHOCH terlalu dekat (choch_dist < 3× min_dist → R:R akan jelek setelah widening)
         min_dist = entry_price * MIN_DIST_PCT
         if sl_dist < min_dist:
-            sl_dist = min_dist
+            c_dir_fail += 1; i += 12; continue
 
         if trade_stype == "Short":
             sl_price = entry_price + sl_dist   # SL 1/3 choch_dist di atas entry
