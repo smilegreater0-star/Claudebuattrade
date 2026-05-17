@@ -766,6 +766,12 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
         if dist == 0:
             i += 12; continue
 
+        # Samakan dengan min_dist di simulate_trade agar TP tidak mismatch → SimSkip
+        min_dist = entry_price * MIN_DIST_PCT
+        if dist < min_dist:
+            dist = min_dist
+            sl_price = (entry_price - dist) if stype == "Long" else (entry_price + dist)
+
         final_tp = entry_price + dist * 3 if stype == "Long" else entry_price - dist * 3
 
         # ── Simulasi (dari mss_m5_idx — entry langsung saat MSS close) ──
