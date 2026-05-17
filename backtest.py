@@ -737,56 +737,33 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             # if ref_price > 0 and (atr_val / ref_price) < atr_thresh:
             #     i += 12; continue
 
-        # ── Entry: Limit order di Breaker Block (realistic SMC execution) ──
-        # Setelah MSS, harga biasanya pullback ke zona BB sebelum lanjut.
-        # Pasang limit order di bb['entry'], tunggu fill. Skip jika timeout (30 candle ~2.5 jam).
+        # ── Entry: Market order saat MSS M5 close ──
+        # SL di BB entry (harga yang "seharusnya" jadi entry limit) karena harga sering
+        # langsung pergi dari BB tanpa pullback. Kalau harga balik ke BB → struktur gagal.
+        entry_price = float(mss_candle['close'])
+
         df_bb = df_m5_full.iloc[max(0, mss_m5_idx - 20): mss_m5_idx + 1].reset_index(drop=True)
         bb = find_breaker_block(df_bb, int(mss_candle['ts_ms']), stype)
 
-        if bb is None:
-            i += 12; continue  # tidak ada BB → tidak bisa pasang limit
+        if bb is not None:
+            sl_price = bb['entry']  # BB price jadi SL
+        else:
+            # Fallback: low/high MSS candle
+            sl_price = float(mss_candle['low']) if stype == "Long" else float(mss_candle['high'])
 
-        bb_entry = bb['entry']
-        sl_price = bb['sl']
-        dist     = abs(bb_entry - sl_price)
+        # Validasi arah SL
+        if stype == "Long"  and entry_price <= sl_price: i += 12; continue
+        if stype == "Short" and entry_price >= sl_price: i += 12; continue
+
+        dist = abs(entry_price - sl_price)
         if dist == 0:
             i += 12; continue
 
-        # Hitung TP dulu agar bisa cek mid-scan (harga ke TP duluan = opportunity gone)
-        final_tp = bb_entry + dist * 3 if stype == "Long" else bb_entry - dist * 3
+        final_tp = entry_price + dist * 3 if stype == "Long" else entry_price - dist * 3
 
-        # Scan forward: cari candle pertama harga menyentuh BB (limit fill)
-        FILL_TIMEOUT = 30  # candle (~2.5 jam)
-        fill_idx = None
-        for j in range(mss_m5_idx + 1, min(mss_m5_idx + 1 + FILL_TIMEOUT, len(df_m5_full))):
-            candle_j = df_m5_full.iloc[j]
-            low_j    = float(candle_j['low'])
-            high_j   = float(candle_j['high'])
-            if stype == "Long":
-                if low_j <= sl_price:   # SL ditembus sebelum fill → skip
-                    break
-                if low_j <= bb_entry:   # harga pullback ke BB → fill (cek SEBELUM TP)
-                    fill_idx = j
-                    break
-                if high_j >= final_tp:  # TP tercapai tanpa mampir BB → opportunity gone
-                    break
-            else:  # Short
-                if high_j >= sl_price:  # SL ditembus sebelum fill → skip
-                    break
-                if high_j >= bb_entry:  # harga bounce ke BB → fill (cek SEBELUM TP)
-                    fill_idx = j
-                    break
-                if low_j <= final_tp:   # TP tercapai tanpa mampir BB → opportunity gone
-                    break
-
-        if fill_idx is None:
-            i += 12; continue  # tidak fill dalam timeout, SL duluan, atau TP duluan
-
-        entry_price = bb_entry
-
-        # ── Simulasi (dari fill_idx — TP/SL tracking mulai setelah limit fill) ──
+        # ── Simulasi (dari mss_m5_idx — entry langsung saat MSS close) ──
         pnl, outcome, exit_p, exit_ts = simulate_trade(
-            df_m5_full, fill_idx, entry_price, sl_price, final_tp, stype, balance
+            df_m5_full, mss_m5_idx, entry_price, sl_price, final_tp, stype, balance
         )
         if outcome == 'skip':
             i += 12; continue
@@ -821,7 +798,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
         trades.append({
             'symbol'         : symbol,
             'type'           : stype,
-            'entry_ts'       : df_m5_full.iloc[fill_idx]['ts'],
+            'entry_ts'       : df_m5_full.iloc[mss_m5_idx]['ts'],
             'exit_ts'        : exit_ts,
             'entry'          : round(entry_price, 8),
             'sl'             : round(sl_price, 8),

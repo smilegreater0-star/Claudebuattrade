@@ -551,7 +551,7 @@ def find_breaker_block(df_m5, mss_ts, stype):
 # ============================================================
 
 def place_limit_order(symbol, side, entry, sl, tp):
-    """Limit GTC order di Breaker Block — entry saat harga pullback ke BB setelah MSS."""
+    """Market order saat MSS close — entry langsung, SL di BB price."""
     try:
         info     = get_instrument_info(symbol)
         res_bal  = session.get_wallet_balance(accountType="UNIFIED", coin="USDT")
@@ -604,12 +604,12 @@ def place_limit_order(symbol, side, entry, sl, tp):
         except Exception:
             pass
 
-        print(f"   Balance:{balance:.2f} Risk:{risk_usd:.2f} Dist:{dist:.6f} Qty:{qty} Entry:{entry_r}")
+        print(f"   Balance:{balance:.2f} Risk:{risk_usd:.2f} Dist:{dist:.6f} Qty:{qty} Entry:~{entry_r}")
         res = session.place_order(
             category=CATEGORY, symbol=symbol, side=side,
-            orderType="Limit", price=str(entry_r), qty=str(qty),
+            orderType="Market", qty=str(qty),
             stopLoss=str(sl_r), takeProfit=str(tp_r),
-            timeInForce="GTC"
+            timeInForce="IOC"
         )
         if res['retCode'] == 0:
             return res['result']['orderId']
@@ -1305,32 +1305,22 @@ def run_bot():
 
                         bb = find_breaker_block(df_m5, mss_candle['ts'], stype)
 
+                        # Market order di MSS close — SL di BB (zona yang "seharusnya" jadi entry)
+                        entry_price = float(mss_candle['close'])
                         if bb is not None:
-                            # Gunakan Breaker Block sebagai entry
-                            entry_price = bb['entry']
-                            sl_price    = bb['sl']
-                            print(f"🧱 {coin}: Breaker Block @ {entry_price:.6f} | SL {sl_price:.6f}")
+                            sl_price = bb['entry']  # BB price jadi SL
+                            print(f"🧱 {coin}: Market MSS @ {entry_price:.6f} | SL BB {sl_price:.6f}")
                         else:
-                            # Fallback: FVG H1 jika Breaker Block tidak ditemukan
-                            entry_fvg = None; entry_price = None
-                            for fvg in fvg_list:
-                                if price_in_fvg(mss_candle['high'], mss_candle['low'], fvg):
-                                    entry_fvg   = fvg
-                                    entry_price = fvg['top'] if stype == "Long" else fvg['bottom']
-                                    break
+                            sl_price = float(mss_candle['low']) if stype == "Long" else float(mss_candle['high'])
+                            print(f"🎯 {coin}: Market MSS @ {entry_price:.6f} | SL {sl_price:.6f}")
 
-                            if entry_fvg is None:
-                                # Tidak ada BB dan tidak ada FVG → gunakan nfh/nfl sebagai RBS
-                                entry_price = freeze_high if stype == "Long" else freeze_low
-                                print(f"↩️ {coin}: No BB/FVG, fallback RBS @ {entry_price:.6f}")
-
-                            # SL di ujung MSS candle — Low untuk Long, High untuk Short
-                            sl_price = mss_candle['low'] if stype == "Long" else mss_candle['high']
-                            print(f"🎯 {coin}: FVG/RBS entry @ {entry_price} | SL {sl_price}")
-
-                        if entry_price is None or sl_price is None:
-                            print(f"⚠️ {coin}: Tidak bisa tentukan entry, skip.")
-                            continue
+                        # Validasi arah SL
+                        if stype == "Long"  and entry_price <= sl_price:
+                            print(f"⚠️ {coin}: SL ({sl_price}) >= entry ({entry_price}), skip.")
+                            del pending[coin]; continue
+                        if stype == "Short" and entry_price >= sl_price:
+                            print(f"⚠️ {coin}: SL ({sl_price}) <= entry ({entry_price}), skip.")
+                            del pending[coin]; continue
 
                         dist = abs(entry_price - sl_price)
                         if dist == 0:
