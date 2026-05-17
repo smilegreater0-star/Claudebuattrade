@@ -1086,9 +1086,9 @@ def run_bot():
                         freeze_ts   = setup['m5_freeze_ts']
 
                         if stype == "Long":
-                            print(f"⏳ {coin}: Nunggu BOS/Sweep M5 < {freeze_low:.6f} | Harga: {curr_m5['close']}")
+                            print(f"⏳ {coin}: Nunggu BOS/Sweep M5 < {freeze_low:.6f} | MSS: {freeze_high:.6f} | Harga: {curr_m5['close']}")
                         else:
-                            print(f"⏳ {coin}: Nunggu BOS/Sweep M5 > {freeze_high:.6f} | Harga: {curr_m5['close']}")
+                            print(f"⏳ {coin}: Nunggu BOS/Sweep M5 > {freeze_high:.6f} | MSS: {freeze_low:.6f} | Harga: {curr_m5['close']}")
 
                         # Pastikan BOS M5 hanya dicari SETELAH fvg_touch_ts
                         # Mencegah BOS M5 historis (sebelum FVG disentuh) ikut trigger
