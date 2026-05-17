@@ -505,6 +505,11 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
     active_choch   = None
     active_stype   = None
 
+    # Counters untuk debug gap DIAG vs trade
+    c_mss_found  = 0   # MSS terdeteksi di dalam backtest (setelah in-trade skip)
+    c_dir_fail   = 0   # SL direction validation gagal
+    c_sim_skip   = 0   # simulate_trade return 'skip'
+
     i = WARMUP_M5
     while i < total - 50:
 
@@ -708,6 +713,8 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
         if mss_candle is None or mss_m5_idx < 0:
             i += 12 * 6; continue
 
+        c_mss_found += 1
+
         # Filter MSS strength (DISABLED — sinkron live bot)
         mss_body  = abs(float(mss_candle['close']) - float(mss_candle['open']))
         mss_range = abs(float(mss_candle['high'])  - float(mss_candle['low']))
@@ -752,8 +759,8 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             sl_price = float(mss_candle['low']) if stype == "Long" else float(mss_candle['high'])
 
         # Validasi arah SL
-        if stype == "Long"  and entry_price <= sl_price: i += 12; continue
-        if stype == "Short" and entry_price >= sl_price: i += 12; continue
+        if stype == "Long"  and entry_price <= sl_price: c_dir_fail += 1; i += 12; continue
+        if stype == "Short" and entry_price >= sl_price: c_dir_fail += 1; i += 12; continue
 
         dist = abs(entry_price - sl_price)
         if dist == 0:
@@ -766,7 +773,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
             df_m5_full, mss_m5_idx, entry_price, sl_price, final_tp, stype, balance
         )
         if outcome == 'skip':
-            i += 12; continue
+            c_sim_skip += 1; i += 12; continue
 
         balance += pnl
 
@@ -820,7 +827,15 @@ def backtest_coin(symbol, df_m5_full, initial_balance):
 
         i = in_trade_until_idx + 1
 
-    return trades, balance
+    c_traded    = len(trades)
+    c_intrade   = c_mss_found - c_dir_fail - c_sim_skip - c_traded
+    return trades, balance, {
+        'mss_found' : c_mss_found,
+        'traded'    : c_traded,
+        'dir_fail'  : c_dir_fail,
+        'sim_skip'  : c_sim_skip,
+        'intrade'   : max(0, c_intrade),   # MSS ditemukan tapi bot sudah dalam trade lain
+    }
 
 
 # ============================================================
@@ -847,7 +862,7 @@ def main():
             date_to   = df_m5['ts'].iloc[-1].strftime('%Y-%m-%d')
             print(f"   Data: {len(df_m5)} candle M5 | {date_from} → {date_to}")
 
-            trades, final_bal = backtest_coin(symbol, df_m5, INITIAL_BALANCE)
+            trades, final_bal, dbg = backtest_coin(symbol, df_m5, INITIAL_BALANCE)
 
             n = len(trades)
             if n == 0:
@@ -883,7 +898,10 @@ def main():
             sl_drift  = n_sl - sl_tp - sl_choch
             sl_str    = (f" | SL→TP:{sl_tp} CHOCH:{sl_choch} Drift:{sl_drift}"
                          f" ({sl_choch*100//n_sl if n_sl else 0}% CHOCH)") if n_sl else ""
+            mss_gap   = dbg['mss_found'] - n
             print(f"   Trade:{n} | W:{len(wins)} L:{n_sl} | WR:{wr:.1f}% | PnL:${total_pnl:.2f} | ROI:{roi:.1f}% | MaxDD:{max_dd:.1f}%{sl_str}")
+            print(f"   MSS→Trade: {dbg['mss_found']} ditemukan → {n} traded"
+                  f" | skip: InTrade:{dbg['intrade']} DirFail:{dbg['dir_fail']} SimSkip:{dbg['sim_skip']}")
 
             coin_results.append({
                 'symbol': symbol, 'trades': n, 'win': len(wins), 'loss': len(losses),

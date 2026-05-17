@@ -414,7 +414,7 @@ def _run():
         # Full backtest
         _log_msg("  Running full backtest (1 tahun)...")
         try:
-            trades, final_bal = bt.backtest_coin(symbol, df, INITIAL_BALANCE)
+            trades, final_bal, dbg = bt.backtest_coin(symbol, df, INITIAL_BALANCE)
         except Exception as e:
             import traceback
             _log_msg(f"  ❌ Error: {e}\n{traceback.format_exc()}")
@@ -461,6 +461,10 @@ def _run():
             f"  ✅ Trade:{n} | W:{len(wins)} L:{nl} | WR:{wr:.1f}% | "
             f"PnL:${pnl:.2f} | ROI:{roi:.1f}% | MaxDD:{max_dd:.1f}% | PF:{pf:.2f} | "
             f"SL→TP:{sl_then_tp} CHOCH:{sl_choch} Drift:{sl_drift} ({choch_pct:.0f}% CHOCH)"
+        )
+        _log_msg(
+            f"  MSS→Trade: {dbg['mss_found']} ditemukan → {n} traded"
+            f" | skip: InTrade:{dbg['intrade']} DirFail:{dbg['dir_fail']} SimSkip:{dbg['sim_skip']}"
         )
 
         results.append({
