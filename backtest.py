@@ -822,18 +822,21 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
             if gap_size <= 0:
                 c_dir_fail += 1; i += 12; continue
 
+            # TP = swing baru yg terbentuk setelah BOS (min/max M5 48H sebelum FVG touch)
+            # Ini adalah swing extreme yg price buat setelah BOS, sebelum retest FVG
+            tp_lkb_start = max(0, found_fvg_idx - 576)
+            tp_window    = df_m5_full.iloc[tp_lkb_start:found_fvg_idx]
+
             if stype == "Long":
                 entry_p = fvg_top                       # limit: price dips ke sini
                 sl_p    = fvg_top - 0.5 * gap_size      # SL di 50% gap (midpoint)
-                # TP = high candle BOS (swing baru yg ngebreak swing lama)
-                tp_p    = bos_tp_lvl if bos_tp_lvl else fvg_top + 2 * gap_size
+                tp_p    = float(tp_window['high'].max()) if len(tp_window) else (bos_tp_lvl or fvg_top + 2 * gap_size)
                 if tp_p <= entry_p:                     # TP harus di atas entry (Long)
                     c_dir_fail += 1; i += 12; continue
             else:
                 entry_p = fvg_bot                       # limit: price rallies ke sini
                 sl_p    = fvg_bot + 0.5 * gap_size      # SL di 50% gap (midpoint)
-                # TP = low candle BOS (swing baru yg ngebreak swing lama)
-                tp_p    = bos_tp_lvl if bos_tp_lvl else fvg_bot - 2 * gap_size
+                tp_p    = float(tp_window['low'].min()) if len(tp_window) else (bos_tp_lvl or fvg_bot - 2 * gap_size)
                 if tp_p >= entry_p:                     # TP harus di bawah entry (Short)
                     c_dir_fail += 1; i += 12; continue
 

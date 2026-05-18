@@ -497,6 +497,15 @@ def _run():
             n_dr = sum(1 for t in trades if t['outcome'] in ('sl', 'timeout') and not t.get('sl_then_tp'))
             _log_msg(f"  MFE Dr (n={len(mfe_trades)}/{n_dr}): {mkt_str}")
 
+        # Avg R:R per coin
+        rr_list = []
+        for t in trades:
+            ep = t.get('entry', 0); sl = t.get('sl', 0); tp = t.get('tp', 0)
+            if ep and sl and tp and abs(ep - sl) > 0:
+                rr_list.append(abs(tp - ep) / abs(ep - sl))
+        avg_rr = sum(rr_list) / len(rr_list) if rr_list else 0.0
+        _log_msg(f"  Avg R:R = {avg_rr:.2f}:1 (dari {len(rr_list)} trade)")
+
         results.append({
             'symbol': symbol, 'status': 'ok',
             'trades': n, 'win': len(wins), 'loss': nl,
@@ -507,6 +516,7 @@ def _run():
             'p25_atr': p25_atr,
             'sl_then_tp': sl_then_tp,
             'sl_choch':   sl_choch,
+            'avg_rr':     round(avg_rr, 2),
             'win_loss': _win_loss_analysis(trades),
         })
         all_trades_list.extend(trades)
@@ -759,10 +769,10 @@ def _render_html() -> bytes:
         atr_str = f"{r['p25_atr']:.4f}" if 'p25_atr' in r else '—'
         if r.get('status') in ('no_data', 'error'):
             label = '⚠ no data' if r['status'] == 'no_data' else '❌ error'
-            coin_rows += f'<tr><td><b>{sym}</b></td><td class="r" colspan="9">{label}</td></tr>\n'
+            coin_rows += f'<tr><td><b>{sym}</b></td><td class="r" colspan="10">{label}</td></tr>\n'
         elif r.get('trades', 0) == 0:
             coin_rows += (f'<tr><td><b>{sym}</b></td><td class="y">0</td>'
-                          + '<td class="y">—</td>' * 7
+                          + '<td class="y">—</td>' * 8
                           + f'<td>{atr_str}</td></tr>\n')
         else:
             cpnl   = r.get('compound_pnl', r['pnl'])
@@ -782,6 +792,8 @@ def _render_html() -> bytes:
             choch_c = 'g' if choch_pct >= 50 else ('y' if choch_pct >= 30 else 'r')
             total_n += r['trades']; total_win += r['win']; total_loss += r['loss']
             total_cpnl += cpnl
+            avg_rr  = r.get('avg_rr', 0.0)
+            rr_c    = 'g' if avg_rr >= 2.0 else ('y' if avg_rr >= 1.5 else 'r')
             coin_rows += (
                 f'<tr>'
                 f'<td><b>{sym}</b></td>'
@@ -791,6 +803,7 @@ def _render_html() -> bytes:
                 f'<td class="{roi_c}">{sign}{roi:.0f}%</td>'
                 f'<td class="{dd_c}">{r["max_dd"]:.1f}%</td>'
                 f'<td class="{pf_c}">{r["pf"]:.2f}</td>'
+                f'<td class="{rr_c}">{avg_rr:.2f}:1</td>'
                 f'<td class="{stp_c}" title="SL→TP: {stp} | CHOCH: {schoch} | Drift: {sdrift}">'
                 f'<small>TP:{stp} CH:{schoch} Dr:{sdrift}</small></td>'
                 f'<td class="{choch_c}" title="{choch_pct:.0f}% dari {nl} loss kena CHOCH">'
@@ -816,7 +829,7 @@ def _render_html() -> bytes:
             f'<td class="{"g" if wr_tot>=55 else "y"}">{wr_tot:.1f}%</td>'
             f'<td class="{"g" if total_cpnl>=0 else "r"}">{sign}${total_cpnl:.2f}</td>'
             f'<td class="{"g" if total_cpnl>=0 else "r"}">{sign}{roi_tot:.0f}%</td>'
-            f'<td>—</td><td>—</td>'
+            f'<td>—</td><td>—</td><td>—</td>'
             f'<td><small>TP:{stp_tot} CH:{schoch_tot} Dr:{sdrift_tot}</small></td>'
             f'<td>{choch_tot_pct:.0f}%</td>'
             f'<td>—</td></tr>\n'
@@ -827,11 +840,12 @@ def _render_html() -> bytes:
           <tr>
             <th>Coin</th><th>Trade</th><th>WR%</th>
             <th>PnL Compound</th><th>ROI%</th><th>MaxDD%</th><th>PF</th>
+            <th title="Rata-rata R:R per trade (reward/risk)">Avg R:R</th>
             <th title="SL→TP: balik ke TP setelah SL | CHOCH: struktur berbalik | Drift: ambiguous">SL Breakdown</th>
             <th title="Persen loss yang kena CHOCH (struktur beneran balik)">CHOCH%</th>
             <th>ATR P25</th>
           </tr>
-          {coin_rows or '<tr><td colspan="10" class="y">Menunggu hasil pertama…</td></tr>'}
+          {coin_rows or '<tr><td colspan="11" class="y">Menunggu hasil pertama…</td></tr>'}
         </table>
     '''
 
