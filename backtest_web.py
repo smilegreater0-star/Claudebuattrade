@@ -21,6 +21,15 @@ import backtest as bt   # engine backtest dari backtest.py
 PORT             = int(os.environ.get('PORT', 8080))
 INITIAL_BALANCE  = 10.0   # modal awal $10
 
+# Entry mode — override via env var di Railway
+# ENTRY_MODE=fvg_touch SL_MULT=1.0 TP_MULT=1.5
+_ENTRY_MODE = os.environ.get('ENTRY_MODE', 'bb_sl')
+_SL_MULT    = float(os.environ.get('SL_MULT',  '2.0'))
+_TP_MULT    = float(os.environ.get('TP_MULT',  '3.0'))
+bt.ENTRY_MODE = _ENTRY_MODE
+bt.SL_MULT    = _SL_MULT
+bt.TP_MULT    = _TP_MULT
+
 COINS = [
     # Core
     'XVGUSDT', 'BELUSDT', '1000BONKUSDT', 'BERAUSDT', 'USUALUSDT',
@@ -268,15 +277,12 @@ def _compound_replay(all_trades: list) -> tuple:
         if sl_dist == 0 or t['entry'] == 0:
             replayed.append({**t, 'compound_pnl': 0.0, 'compound_bal': bal})
             continue
-        if t['outcome'] == 'tp':
-            r_mult = 3.0
-        elif t['outcome'] == 'sl':
-            r_mult = -1.0
-        else:  # timeout
-            if t['type'] == 'Long':
-                r_mult = (t['exit_price'] - t['entry']) / sl_dist
-            else:
-                r_mult = (t['entry'] - t['exit_price']) / sl_dist
+        # Gunakan R aktual dari exit price (bukan hardcode 3.0/1.0)
+        # sehingga benar untuk semua ENTRY_MODE (fvg_touch TP=1.5R, dll)
+        if t['type'] == 'Long':
+            r_mult = (t['exit_price'] - t['entry']) / sl_dist
+        else:
+            r_mult = (t['entry'] - t['exit_price']) / sl_dist
         pnl  = r_mult * risk
         bal += pnl
         replayed.append({**t, 'compound_pnl': pnl, 'compound_bal': bal})
@@ -374,7 +380,7 @@ def _run():
     global _phase, _results, _quarter_stats, _all_trades, _compound_final_bal
 
     _log_msg("=" * 62)
-    _log_msg(f"BACKTEST 22 COIN — Strategi Recursive IDM | Full Year 2025 | Modal ${INITIAL_BALANCE:.0f} | Risk 1%")
+    _log_msg(f"BACKTEST 22 COIN — {_ENTRY_MODE.upper()} SL={_SL_MULT}R TP={_TP_MULT}R | Full Year 2025 | Modal ${INITIAL_BALANCE:.0f} | Risk 1%")
     _log_msg(f"{len(COINS)} Coins: {', '.join(COINS)}")
     _log_msg("=" * 62)
 
