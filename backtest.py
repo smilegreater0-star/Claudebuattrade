@@ -33,6 +33,36 @@ TRAIL_STOP   = 0.0      # trailing SL step dalam R (0 = disabled, pakai fixed TP
 TOUCH_VOL_MIN = 0.8     # fvg_strong: touch candle vol min (× avg 20 M5 candle; 0 = no filter)
 MAX_GAP_PCT   = 0.005   # fvg_strong: max gap_size / entry_p (0 = no filter)
 
+# Per-coin filters — derived from win/loss analysis (loss-group averages as boundary)
+# c3_max/c3_min : bounds on C3 vol ratio (c3_vol/avg_20H) at FVG formation
+# tch_max/tch_min: bounds on touch candle vol ratio (vol/avg_20M5) at OCL touch
+# skip_session  : skip trades whose OCL-touch candle falls in this session (UTC)
+#                 Asia=0-7, London=8-15, NY=16-23
+COIN_FILTERS = {
+    'XVGUSDT':      {'c3_max': 6.9,  'tch_max': 21.3, 'skip_session': 'Asia'},
+    'BELUSDT':      {'c3_min': 2.4,  'tch_min': 3.8,  'skip_session': None},
+    '1000BONKUSDT': {                 'tch_min': 2.0,  'skip_session': 'NY'},
+    'BERAUSDT':     {'c3_max': 2.1,  'tch_min': 2.2,  'skip_session': 'NY'},
+    'USUALUSDT':    {'c3_max': 2.1,  'tch_max': 3.9,  'skip_session': 'London'},
+    '1000PEPEUSDT': {'c3_max': 2.1,  'tch_max': 2.3,  'skip_session': None},
+    'WIFUSDT':      {                 'tch_min': 1.9,  'skip_session': None},
+    'PENGUUSDT':    {                 'tch_max': 2.9,  'skip_session': 'Asia'},
+    'PNUTUSDT':     {                 'tch_min': 2.2,  'skip_session': 'London'},
+    'AVAXUSDT':     {'c3_max': 1.8,  'tch_max': 3.9,  'skip_session': 'Asia'},
+    'ONDOUSDT':     {                 'tch_min': 3.3,  'skip_session': 'NY'},
+    'EIGENUSDT':    {'c3_max': 1.8,  'tch_min': 2.3,  'skip_session': 'NY'},
+    'LINKUSDT':     {'c3_max': 2.0,  'tch_max': 4.0,  'skip_session': 'Asia'},
+    'VIRTUALUSDT':  {'c3_min': 1.8,  'tch_min': 2.4,  'skip_session': 'NY'},
+    'ORCAUSDT':     {'c3_max': 3.8,  'tch_max': 2.6,  'skip_session': None},
+    'DOGEUSDT':     {                 'tch_min': 2.3,  'skip_session': 'London'},
+    'ARBUSDT':      {'c3_min': 1.8,  'tch_min': 2.3,  'skip_session': 'Asia'},
+    'NEARUSDT':     {'c3_max': 2.4,  'tch_min': 3.6,  'skip_session': 'NY'},
+    'STORJUSDT':    {                 'tch_min': 5.0,  'skip_session': None},
+    'ENAUSDT':      {'c3_max': 1.8,  'tch_min': 2.2,  'skip_session': 'NY'},
+    'ADAUSDT':      {                 'tch_max': 2.8,  'skip_session': 'London'},
+    'SHIB1000USDT': {'c3_min': 1.7,  'tch_min': 3.8,  'skip_session': None},
+}
+
 DATA_DIR = "/home/claude/fulldata"
 FILES = {
     '1000BONKUSDT' : [
@@ -867,6 +897,26 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
                     _touch_vol_ratio = 0.0
                 if TOUCH_VOL_MIN > 0 and 0 < _touch_vol_ratio < TOUCH_VOL_MIN:
                     c_dir_fail += 1; i += 12; continue
+
+                # Per-coin filters (win/loss pattern analysis)
+                _flt = COIN_FILTERS.get(symbol, {})
+                if _flt:
+                    _c3r = float(used_fvg.get('c3_vol', 0)) / \
+                           (float(used_fvg.get('vol_avg20h', 1)) or 1)
+                    if _flt.get('c3_max') is not None and _c3r > _flt['c3_max']:
+                        c_dir_fail += 1; i += 12; continue
+                    if _flt.get('c3_min') is not None and 0 < _c3r < _flt['c3_min']:
+                        c_dir_fail += 1; i += 12; continue
+                    if _touch_vol_ratio > 0:
+                        if _flt.get('tch_max') is not None and _touch_vol_ratio > _flt['tch_max']:
+                            c_dir_fail += 1; i += 12; continue
+                        if _flt.get('tch_min') is not None and _touch_vol_ratio < _flt['tch_min']:
+                            c_dir_fail += 1; i += 12; continue
+                    if _flt.get('skip_session'):
+                        _hr  = pd.Timestamp(df_m5_full.iloc[found_fvg_idx]['ts']).hour
+                        _ses = 'Asia' if _hr < 8 else ('London' if _hr < 16 else 'NY')
+                        if _ses == _flt['skip_session']:
+                            c_dir_fail += 1; i += 12; continue
 
                 _entry_idx   = found_fvg_idx
                 _entry_price = entry_p

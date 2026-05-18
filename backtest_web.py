@@ -427,7 +427,7 @@ def _run():
     global _phase, _results, _quarter_stats, _all_trades, _compound_final_bal
 
     _log_msg("=" * 62)
-    _log_msg(f"BACKTEST 22 COIN — {_ENTRY_MODE.upper()} SL={_SL_MULT}R TP={_TP_MULT}R TouchVol≥{_TOUCH_VOL_MIN}× MaxGap≤{_MAX_GAP_PCT*100:.2f}% | Full Year 2025 | Modal ${INITIAL_BALANCE:.0f} | Risk 1%")
+    _log_msg(f"BACKTEST 22 COIN — {_ENTRY_MODE.upper()} SL={_SL_MULT}R TP={_TP_MULT}R TouchVol≥{_TOUCH_VOL_MIN}× MaxGap≤{_MAX_GAP_PCT*100:.2f}% CoinFilter:ON | Full Year 2025 | Modal ${INITIAL_BALANCE:.0f} | Risk 1%")
     _log_msg(f"{len(COINS)} Coins: {', '.join(COINS)}")
     _log_msg("=" * 62)
 
