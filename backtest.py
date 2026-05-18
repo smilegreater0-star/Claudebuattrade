@@ -695,9 +695,11 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
             if d > 0 and d >= ep * MIN_DIST_PCT:
                 _entry_idx   = found_fvg_idx
                 _entry_price = ep
-                _sl_price    = sl_nat
-                _final_tp    = ep + d * TP_MULT if stype == "Long" else ep - d * TP_MULT
-                _dist        = d
+                # SL_MULT memperlebar SL dari fvg_bottom:
+                # SL_MULT=1 → fvg_bottom (default), SL_MULT=2 → 1R di bawah fvg_bottom
+                _sl_price    = ep - SL_MULT * d if stype == "Long" else ep + SL_MULT * d
+                _final_tp    = ep + TP_MULT * d if stype == "Long" else ep - TP_MULT * d
+                _dist        = SL_MULT * d   # actual risk distance untuk qty sizing
             else:
                 c_dir_fail += 1; i += 12; continue
 
