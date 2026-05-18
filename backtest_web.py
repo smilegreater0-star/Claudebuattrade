@@ -23,7 +23,7 @@ INITIAL_BALANCE  = 10.0   # modal awal $10
 
 # Entry mode — env var override atau default hardcode di sini
 _ENTRY_MODE    = os.environ.get('ENTRY_MODE',    'fvg_strong')
-_SL_MULT       = float(os.environ.get('SL_MULT',       '6.2'))
+_SL_MULT       = float(os.environ.get('SL_MULT',       '7.3'))
 _TP_MULT       = float(os.environ.get('TP_MULT',       '18.6'))
 _ENTRY_R       = float(os.environ.get('ENTRY_R',       '9.5'))
 _TOUCH_VOL_MIN = float(os.environ.get('TOUCH_VOL_MIN', '0.0'))    # min vol ratio at OCL touch (0=no filter)
@@ -546,14 +546,16 @@ def _run():
             n_dr = sum(1 for t in trades if t['outcome'] in ('sl', 'timeout') and not t.get('sl_then_tp'))
             _log_msg(f"  MFE Dr (n={len(mfe_trades)}/{n_dr}): {mkt_str}")
 
-        # Avg R:R per coin
+        # Avg R:R per coin — dari exit_price aktual (bukan far TP)
         rr_list = []
         for t in trades:
-            ep = t.get('entry', 0); sl = t.get('sl', 0); tp = t.get('tp', 0)
-            if ep and sl and tp and abs(ep - sl) > 0:
-                rr_list.append(abs(tp - ep) / abs(ep - sl))
+            if t.get('outcome') != 'tp': continue
+            ep = t.get('entry', 0); sl = t.get('sl', 0); xp = t.get('exit_price', 0)
+            sl_dist = abs(ep - sl)
+            if ep and sl_dist > 0 and xp:
+                rr_list.append(abs(xp - ep) / sl_dist)
         avg_rr = sum(rr_list) / len(rr_list) if rr_list else 0.0
-        _log_msg(f"  Avg R:R = {avg_rr:.2f}:1 (dari {len(rr_list)} trade)")
+        _log_msg(f"  Avg R:R = {avg_rr:.2f}:1 (dari {len(rr_list)} win)")
 
         results.append({
             'symbol': symbol, 'status': 'ok',
