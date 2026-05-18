@@ -682,6 +682,37 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
             else:
                 c_dir_fail += 1; i += 12; continue
 
+        # ════════════════════════════════════════════════════════
+        # OPSI B2: Entry di candle konfirmasi setelah FVG touch
+        # Tunggu 1 candle setelah touch — masuk hanya jika close
+        # searah setup (bullish close untuk Long, bearish untuk Short)
+        # SL tetap di FVG edge, dist dihitung ulang dari entry baru
+        # ════════════════════════════════════════════════════════
+        elif ENTRY_MODE == 'fvg_confirm':
+            confirm_idx = found_fvg_idx + 1
+            if confirm_idx >= total:
+                c_dir_fail += 1; i += 12; continue
+            touch_close = float(df_m5_full.iloc[found_fvg_idx]['close'])
+            conf_close  = float(df_m5_full.iloc[confirm_idx]['close'])
+            if stype == "Long":
+                sl_nat = float(used_fvg['bottom'])
+                if conf_close <= touch_close:          # tidak konfirmasi naik
+                    c_dir_fail += 1; i += 12; continue
+                d = conf_close - sl_nat
+            else:
+                sl_nat = float(used_fvg['top'])
+                if conf_close >= touch_close:          # tidak konfirmasi turun
+                    c_dir_fail += 1; i += 12; continue
+                d = sl_nat - conf_close
+            if d > 0 and d >= conf_close * MIN_DIST_PCT:
+                _entry_idx   = confirm_idx
+                _entry_price = conf_close
+                _sl_price    = sl_nat
+                _final_tp    = conf_close + d * TP_MULT if stype == "Long" else conf_close - d * TP_MULT
+                _dist        = d
+            else:
+                c_dir_fail += 1; i += 12; continue
+
         else:
             # ════════════════════════════════════════════════════
             # IDM M5 setelah FVG touch (max 48 jam)
