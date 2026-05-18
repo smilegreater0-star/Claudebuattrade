@@ -671,6 +671,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
         _sl_price    = None
         _final_tp    = None
         _dist        = None
+        _fvg_d       = None   # FVG height = 1R dari titik 0 (untuk MAE)
         _trigger_str = ENTRY_MODE
         _depth_val   = 0
         _trade_stype = stype   # arah trade aktual — bisa di-flip oleh fvg_touch_rev
@@ -703,6 +704,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
                 _sl_price    = ep - SL_MULT * d if _trade_stype == "Long" else ep + SL_MULT * d
                 _final_tp    = ep + TP_MULT * d if _trade_stype == "Long" else ep - TP_MULT * d
                 _dist        = SL_MULT * d
+                _fvg_d       = d
             else:
                 c_dir_fail += 1; i += 12; continue
 
@@ -780,6 +782,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
                 _sl_price    = sl_abs
                 _final_tp    = tp_abs
                 _dist        = dist_risk
+                _fvg_d       = d
             else:
                 c_dir_fail += 1; i += 12; continue
 
@@ -1035,11 +1038,12 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
                 else:
                     if float(ck['low'])  <= _final_tp: sl_then_tp = True; tp_hit_idx = k; break
             if sl_then_tp and tp_hit_idx is not None:
-                win = df_m5_full.iloc[_entry_idx : tp_hit_idx + 1]
+                win      = df_m5_full.iloc[_entry_idx : tp_hit_idx + 1]
+                mae_unit = _fvg_d if _fvg_d else _dist  # 1R = FVG height dari titik 0
                 if _trade_stype == "Long":
-                    mae_r = (_entry_price - float(win['low'].min()))  / _dist
+                    mae_r = (_entry_price - float(win['low'].min()))  / mae_unit
                 else:
-                    mae_r = (float(win['high'].max()) - _entry_price) / _dist
+                    mae_r = (float(win['high'].max()) - _entry_price) / mae_unit
 
         trades.append({
             'symbol'         : symbol,
