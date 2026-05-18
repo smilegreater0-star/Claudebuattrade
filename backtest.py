@@ -25,7 +25,7 @@ MIN_DIST_PCT    = 0.005     # minimum SL distance 0.5%
 
 # ── Test variant config (override dari luar untuk testing) ──
 ENTRY_MODE   = 'bb_sl'  # 'bb_sl'|'bb_entry'|'fvg_touch'|'fvg_touch_rev'|'fvg_rev_limit'|'idm_touch'|'fvg_confirm'|'fvg_deep'|'fvg_dip'|'fvg_strong'
-SL_MULT      = 7.3      # SL distance dari titik 0 (dalam R unit = FVG height)
+SL_MULT      = 1.0      # SL distance dari titik 0 (dalam R unit = FVG height)
 TP_MULT      = 2.0      # TP distance dari titik 0 (dalam R unit)
 ENTRY_R      = 8.0      # fvg_rev_limit: level limit entry dari titik 0 (dalam R)
 TIME_FILTER  = 0        # max candles FVG→MSS (0 = disabled)
