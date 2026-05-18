@@ -1,6 +1,6 @@
 """
 backtest_web.py — Backtest SEMUA coin bot live via Bybit API
-22 Coins | Full Year 2025 | Modal $10 | Risk 1% compound | fvg_touch SL=2R TP=3R
+22 Coins | Full Year 2025 | Modal $10 | Risk 1% compound | fvg_touch SL=4.2R TP=6.3R
 
 Deploy ke Railway:
   Start command → python backtest_web.py
@@ -23,8 +23,8 @@ INITIAL_BALANCE  = 10.0   # modal awal $10
 
 # Entry mode — env var override atau default hardcode di sini
 _ENTRY_MODE = os.environ.get('ENTRY_MODE', 'fvg_touch')
-_SL_MULT    = float(os.environ.get('SL_MULT',  '2.0'))
-_TP_MULT    = float(os.environ.get('TP_MULT',  '3.0'))
+_SL_MULT    = float(os.environ.get('SL_MULT',  '4.2'))
+_TP_MULT    = float(os.environ.get('TP_MULT',  '6.3'))
 bt.ENTRY_MODE = _ENTRY_MODE
 bt.SL_MULT    = _SL_MULT
 bt.TP_MULT    = _TP_MULT
