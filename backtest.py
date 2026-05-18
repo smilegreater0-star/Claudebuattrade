@@ -543,6 +543,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
     active_gaps    = []
     active_choch   = None
     active_stype   = None
+    active_bos_extreme = None  # low/high dari candle BOS (swing baru yang ngebreak)
 
     # Counters untuk debug gap DIAG vs trade
     c_mss_found  = 0   # MSS terdeteksi di dalam backtest (setelah in-trade skip)
@@ -606,10 +607,12 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
                     else:
                         gaps_new = [g for g in gaps_new if g['top'] <= choch_new]
 
-                active_bos_key = bos_key
-                active_gaps    = gaps_new
-                active_choch   = choch_new
-                active_stype   = stype_new
+                active_bos_key     = bos_key
+                active_gaps        = gaps_new
+                active_choch       = choch_new
+                active_stype       = stype_new
+                # Swing baru yg dibentuk candle BOS — dipakai sebagai TP di fvg_strong
+                active_bos_extreme = float(closed_h1['low']) if stype_new == "Short" else float(closed_h1['high'])
 
         # Tidak ada setup aktif → lanjut 1 jam
         if not active_gaps:
@@ -623,11 +626,11 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
             if active_choch is not None:
                 if active_stype == "Long"  and blk_c_last < active_choch:
                     active_bos_key = None; active_gaps = []
-                    active_choch   = None; active_stype = None
+                    active_choch   = None; active_stype = None; active_bos_extreme = None
                     i += 12; continue
                 if active_stype == "Short" and blk_c_last > active_choch:
                     active_bos_key = None; active_gaps = []
-                    active_choch   = None; active_stype = None
+                    active_choch   = None; active_stype = None; active_bos_extreme = None
                     i += 12; continue
 
         # Hapus FVG yang sudah dilanggar (close menembus body FVG)
@@ -674,11 +677,12 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
                 'bos_level': active_bos_key[1] if active_bos_key else None,
             })
 
-        bos_swing_lvl = active_bos_key[1] if active_bos_key else None  # swing level yg di-break oleh BOS
+        bos_swing_lvl = active_bos_key[1] if active_bos_key else None    # swing lama yg di-break
+        bos_tp_lvl    = active_bos_extreme                               # swing baru (candle BOS extreme)
         stype       = active_stype
         choch_level = active_choch
         active_bos_key = None; active_gaps = []
-        active_choch   = None; active_stype = None
+        active_choch   = None; active_stype = None; active_bos_extreme = None
 
         # ── Shared entry variables ──
         _entry_idx   = None
@@ -821,13 +825,15 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
             if stype == "Long":
                 entry_p = fvg_top                       # limit: price dips ke sini
                 sl_p    = fvg_top - 0.5 * gap_size      # SL di 50% gap (midpoint)
-                tp_p    = bos_swing_lvl if bos_swing_lvl else fvg_top + 2 * gap_size
+                # TP = high candle BOS (swing baru yg ngebreak swing lama)
+                tp_p    = bos_tp_lvl if bos_tp_lvl else fvg_top + 2 * gap_size
                 if tp_p <= entry_p:                     # TP harus di atas entry (Long)
                     c_dir_fail += 1; i += 12; continue
             else:
                 entry_p = fvg_bot                       # limit: price rallies ke sini
                 sl_p    = fvg_bot + 0.5 * gap_size      # SL di 50% gap (midpoint)
-                tp_p    = bos_swing_lvl if bos_swing_lvl else fvg_bot - 2 * gap_size
+                # TP = low candle BOS (swing baru yg ngebreak swing lama)
+                tp_p    = bos_tp_lvl if bos_tp_lvl else fvg_bot - 2 * gap_size
                 if tp_p >= entry_p:                     # TP harus di bawah entry (Short)
                     c_dir_fail += 1; i += 12; continue
 
