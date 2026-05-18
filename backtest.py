@@ -455,7 +455,7 @@ def simulate_trade(df_m5, entry_idx, entry, sl, tp, stype, balance, _skip_reason
 
     # R:R check pakai original_dist (sebelum widen) — supaya 1:2, 1:3 dll tidak di-reject
     tp_dist = abs(tp - entry)
-    if tp_dist / original_dist < MIN_RR:  return _skip(f'rr_{tp_dist/original_dist:.2f}')
+    if tp_dist / original_dist < MIN_RR - 1e-9:  return _skip(f'rr_{tp_dist/original_dist:.2f}')
 
     risk_usd = balance * RISK_PCT
     qty      = risk_usd / dist            # kontrak (qty in coin)
