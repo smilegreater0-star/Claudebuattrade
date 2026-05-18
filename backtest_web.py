@@ -319,30 +319,57 @@ def _calc_quarters_compound(replayed: list) -> dict:
 
 # ── Win/Loss analysis ────────────────────────────────────────────────────
 def _win_loss_analysis(trades: list) -> dict:
-    """Compute per-group stats for win and loss trades."""
+    """Compute per-group stats for win and loss trades (fvg_strong strategy)."""
+    import pandas as _pd
     wins   = [t for t in trades if t['outcome'] == 'tp']
     losses = [t for t in trades if t['outcome'] == 'sl']
+
+    def _hour(t):
+        ts = t.get('entry_ts')
+        if ts is None: return None
+        try:
+            return _pd.Timestamp(ts).hour
+        except Exception:
+            return None
 
     def grp(g):
         if not g: return None
         n = len(g)
-        long_n = sum(1 for t in g if t['type'] == 'Long')
-        bb_n   = sum(1 for t in g if t.get('entry_type') == 'breaker')
+        long_n   = sum(1 for t in g if t['type'] == 'Long')
+        # C3 volume strength (c3_vol / avg 20H vol at FVG formation)
+        vol_vals = [t.get('vol_ratio', 0.0) for t in g if t.get('vol_ratio', 0.0) > 0]
+        avg_vol  = sum(vol_vals) / len(vol_vals) if vol_vals else 0.0
+        # FVG gap size as % of entry price
+        gap_vals = [t.get('atr_ratio', 0.0) for t in g if t.get('atr_ratio', 0.0) > 0]
+        avg_gap  = sum(gap_vals) / len(gap_vals) * 100 if gap_vals else 0.0
+        # Entry hour (UTC)
+        hours    = [h for h in (_hour(t) for t in g) if h is not None]
+        avg_hour = sum(hours) / len(hours) if hours else 0.0
+        # Session breakdown: Asia 0-7, London 8-15, NY 16-23
+        asia   = sum(1 for h in hours if 0  <= h < 8)
+        london = sum(1 for h in hours if 8  <= h < 16)
+        ny     = sum(1 for h in hours if 16 <= h < 24)
+        dom_session = max([('Asia', asia), ('London', london), ('NY', ny)],
+                          key=lambda x: x[1])[0] if hours else '—'
+        # SL breakdown (relevant for loss group)
+        stp_n  = sum(1 for t in g if t.get('sl_then_tp'))
+        sch_n  = sum(1 for t in g if t.get('sl_choch'))
         return {
-            'n'        : n,
-            'long_pct' : long_n / n * 100,
-            'bb_pct'   : bb_n   / n * 100,
-            'avg_depth': sum(t.get('idm_depth', 0)      for t in g) / n,
-            'avg_body' : sum(t.get('mss_body_ratio', 0) for t in g) / n * 100,
-            'avg_vol'  : sum(t.get('vol_ratio', 0)      for t in g) / n,
-            'avg_atr'  : sum(t.get('atr_ratio', 0)      for t in g) / n,
+            'n'           : n,
+            'long_pct'    : long_n / n * 100,
+            'avg_vol'     : avg_vol,
+            'avg_gap'     : avg_gap,
+            'avg_hour'    : avg_hour,
+            'dom_session' : dom_session,
+            'stp_pct'     : stp_n / n * 100,
+            'sch_pct'     : sch_n / n * 100,
         }
 
     return {'win': grp(wins), 'loss': grp(losses)}
 
 
 def _insight(ws, ls) -> str:
-    """One-line human-readable insight from win vs loss stats."""
+    """One-line human-readable insight from win vs loss stats (fvg_strong)."""
     if ws is None or ls is None:
         return '—'
     clues = []
@@ -350,30 +377,36 @@ def _insight(ws, ls) -> str:
     dd = ws['long_pct'] - ls['long_pct']
     if   dd >  20: clues.append(f'Long lebih baik ({ws["long_pct"]:.0f}% vs {ls["long_pct"]:.0f}%)')
     elif dd < -20: clues.append(f'Short lebih baik ({100-ws["long_pct"]:.0f}% vs {100-ls["long_pct"]:.0f}%)')
-    # Entry type
-    bd = ws['bb_pct'] - ls['bb_pct']
-    if   bd >  15: clues.append(f'Breaker Block entry lebih reliable')
-    elif bd < -15: clues.append(f'FVG entry lebih reliable')
-    # IDM depth
-    id_ = ws['avg_depth'] - ls['avg_depth']
-    if   id_ >  0.3: clues.append(f'Setup lebih dalam prediktif (IDM {ws["avg_depth"]:.1f}×)')
-    elif id_ < -0.3: clues.append(f'Setup cepat lebih baik (IDM {ws["avg_depth"]:.1f}×)')
-    # MSS body
-    mbd = ws['avg_body'] - ls['avg_body']
-    if mbd > 5: clues.append(f'MSS body kuat ({ws["avg_body"]:.0f}% vs {ls["avg_body"]:.0f}%)')
-    # Volume
+    # C3 volume strength
     vd = ws['avg_vol'] - ls['avg_vol']
-    if vd > 0.3: clues.append(f'Volume MSS lebih tinggi saat win ({ws["avg_vol"]:.1f}× vs {ls["avg_vol"]:.1f}×)')
+    if   vd >  0.3: clues.append(f'Vol C3 lebih kuat saat win ({ws["avg_vol"]:.1f}× vs {ls["avg_vol"]:.1f}×)')
+    elif vd < -0.3: clues.append(f'Vol C3 justru lebih lemah saat win ({ws["avg_vol"]:.1f}× vs {ls["avg_vol"]:.1f}×)')
+    # FVG gap size
+    gd = ws['avg_gap'] - ls['avg_gap']
+    if   gd >  0.05: clues.append(f'FVG lebih besar saat win ({ws["avg_gap"]:.2f}% vs {ls["avg_gap"]:.2f}%)')
+    elif gd < -0.05: clues.append(f'FVG lebih kecil saat win ({ws["avg_gap"]:.2f}% vs {ls["avg_gap"]:.2f}%)')
+    # Session dominance
+    if ws['dom_session'] != ls['dom_session']:
+        clues.append(f'Win dominan sesi {ws["dom_session"]} (loss: {ls["dom_session"]})')
+    # Loss breakdown
+    if ls['stp_pct'] > 35:
+        clues.append(f'{ls["stp_pct"]:.0f}% loss = stop hunt (SL→TP)')
+    if ls['sch_pct'] > 25:
+        clues.append(f'{ls["sch_pct"]:.0f}% loss = CHOCH nyata')
+    drift = 100 - ls['stp_pct'] - ls['sch_pct']
+    if drift > 50:
+        clues.append(f'{drift:.0f}% loss = drift (konsolidasi/ambiguous)')
     return ' · '.join(clues) if clues else 'Tidak ada pola dominan'
 
 
 def _fmt_grp(s) -> str:
-    """Compact one-line summary for a win/loss group."""
+    """Compact one-line summary for a win/loss group (fvg_strong)."""
     if s is None: return '—'
-    dir_lbl = f'Long {s["long_pct"]:.0f}%' if s['long_pct'] >= 50 else f'Short {100-s["long_pct"]:.0f}%'
-    ent_lbl = f'BB {s["bb_pct"]:.0f}%' if s["bb_pct"] >= 50 else f'FVG {100-s["bb_pct"]:.0f}%'
-    return (f'{dir_lbl} · {ent_lbl} · IDM {s["avg_depth"]:.1f}× '
-            f'· Body {s["avg_body"]:.0f}% · Vol {s["avg_vol"]:.1f}×')
+    dir_lbl  = f'Long {s["long_pct"]:.0f}%' if s['long_pct'] >= 50 else f'Short {100-s["long_pct"]:.0f}%'
+    vol_lbl  = f'Vol {s["avg_vol"]:.1f}×'  if s['avg_vol']  > 0 else 'Vol —'
+    gap_lbl  = f'Gap {s["avg_gap"]:.2f}%'  if s['avg_gap']  > 0 else 'Gap —'
+    sess_lbl = s['dom_session']
+    return f'{dir_lbl} · {vol_lbl} · {gap_lbl} · {sess_lbl}'
 
 
 # ── Main runner (background thread) ──────────────────────────────────────
@@ -871,8 +904,8 @@ def _render_html() -> bytes:
         <table>
           <tr>
             <th>Coin</th>
-            <th>✅ Win ({total_win if total_n else 0}) — pola rata-rata</th>
-            <th>❌ Loss ({total_loss if total_n else 0}) — pola rata-rata</th>
+            <th title="Direction · Vol C3 · FVG Gap% · Sesi dominan">✅ Win ({total_win if total_n else 0}) — Direction · Vol · Gap · Sesi</th>
+            <th title="Direction · Vol C3 · FVG Gap% · Sesi dominan">❌ Loss ({total_loss if total_n else 0}) — Direction · Vol · Gap · Sesi</th>
             <th>💡 Insight</th>
           </tr>
           {wl_rows or '<tr><td colspan="4" class="y">Menunggu hasil…</td></tr>'}

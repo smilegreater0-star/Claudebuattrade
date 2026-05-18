@@ -858,6 +858,11 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
                 _final_tp    = tp_p
                 _dist        = d
                 _fvg_d       = gap_size
+                # Store FVG vol strength and gap size for win/loss analysis
+                _c3_vol  = float(used_fvg.get('c3_vol', 0.0))
+                _va20h   = float(used_fvg.get('vol_avg20h', 1.0))
+                _vol_ratio = round(_c3_vol / _va20h, 4) if _va20h > 0 else 0.0
+                _atr_ratio = round(gap_size / entry_p, 6) if entry_p > 0 else 0.0
             else:
                 c_dir_fail += 1; i += 12; continue
 
