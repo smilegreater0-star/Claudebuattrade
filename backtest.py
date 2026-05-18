@@ -30,6 +30,7 @@ TP_MULT      = 2.0      # TP distance dari titik 0 (dalam R unit)
 ENTRY_R      = 8.0      # fvg_rev_limit: level limit entry dari titik 0 (dalam R)
 TIME_FILTER  = 0        # max candles FVG→MSS (0 = disabled)
 TRAIL_STOP   = 0.0      # trailing SL step dalam R (0 = disabled, pakai fixed TP)
+TOUCH_VOL_MIN = 0.8     # fvg_strong: touch candle vol min (× avg 20 M5 candle; 0 = no filter)
 
 DATA_DIR = "/home/claude/fulldata"
 FILES = {
@@ -714,7 +715,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
         _trigger_str = ENTRY_MODE
         _depth_val   = 0
         _trade_stype = stype   # arah trade aktual — bisa di-flip oleh fvg_touch_rev
-        _mss_body_ratio = 0.0; _vol_ratio = 0.0; _atr_ratio = 0.0
+        _mss_body_ratio = 0.0; _vol_ratio = 0.0; _atr_ratio = 0.0; _touch_vol_ratio = 0.0
 
         # ════════════════════════════════════════════════════════
         # OPSI B: Entry langsung di FVG touch
@@ -852,13 +853,25 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
 
             d = SL_MULT * gap_size
             if d > 0 and d >= entry_p * MIN_DIST_PCT:
+                # Touch candle volume check — volume M5 saat harga sentuh OCL
+                if 'vol' in df_m5_full.columns:
+                    t_vol  = float(df_m5_full.iloc[found_fvg_idx]['vol'])
+                    avg_s  = max(0, found_fvg_idx - 20)
+                    avg_tv = float(df_m5_full.iloc[avg_s:found_fvg_idx]['vol'].mean()) \
+                             if found_fvg_idx > 0 else 0.0
+                    _touch_vol_ratio = round(t_vol / avg_tv, 4) if avg_tv > 0 else 0.0
+                else:
+                    _touch_vol_ratio = 0.0
+                if TOUCH_VOL_MIN > 0 and 0 < _touch_vol_ratio < TOUCH_VOL_MIN:
+                    c_dir_fail += 1; i += 12; continue
+
                 _entry_idx   = found_fvg_idx
                 _entry_price = entry_p
                 _sl_price    = sl_p
                 _final_tp    = tp_p
                 _dist        = d
                 _fvg_d       = gap_size
-                # Store FVG vol strength and gap size for win/loss analysis
+                # FVG vol strength (C3 at formation) and gap size for analysis
                 _c3_vol  = float(used_fvg.get('c3_vol', 0.0))
                 _va20h   = float(used_fvg.get('vol_avg20h', 1.0))
                 _vol_ratio = round(_c3_vol / _va20h, 4) if _va20h > 0 else 0.0
@@ -1164,6 +1177,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
             'mss_body_ratio' : _mss_body_ratio,
             'vol_ratio'      : _vol_ratio,
             'atr_ratio'      : _atr_ratio,
+            'touch_vol_ratio': _touch_vol_ratio,
             'sl_dist_pct'    : round(_dist / _entry_price, 6) if _entry_price > 0 else 0.0,
             'sl_then_tp'     : sl_then_tp,
             'sl_choch'       : sl_choch,

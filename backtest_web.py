@@ -22,14 +22,16 @@ PORT             = int(os.environ.get('PORT', 8080))
 INITIAL_BALANCE  = 10.0   # modal awal $10
 
 # Entry mode — env var override atau default hardcode di sini
-_ENTRY_MODE = os.environ.get('ENTRY_MODE', 'fvg_strong')
-_SL_MULT    = float(os.environ.get('SL_MULT',  '6.2'))    # SL = 6.2 × gap dari entry
-_TP_MULT    = float(os.environ.get('TP_MULT',  '18.6'))   # TP = 18.6 × gap dari entry (3:1 R:R)
-_ENTRY_R    = float(os.environ.get('ENTRY_R',  '9.5'))
-bt.ENTRY_MODE = _ENTRY_MODE
-bt.SL_MULT    = _SL_MULT
-bt.TP_MULT    = _TP_MULT
-bt.ENTRY_R    = _ENTRY_R
+_ENTRY_MODE    = os.environ.get('ENTRY_MODE',    'fvg_strong')
+_SL_MULT       = float(os.environ.get('SL_MULT',       '6.2'))
+_TP_MULT       = float(os.environ.get('TP_MULT',       '18.6'))
+_ENTRY_R       = float(os.environ.get('ENTRY_R',       '9.5'))
+_TOUCH_VOL_MIN = float(os.environ.get('TOUCH_VOL_MIN', '0.8'))  # min vol ratio at OCL touch
+bt.ENTRY_MODE    = _ENTRY_MODE
+bt.SL_MULT       = _SL_MULT
+bt.TP_MULT       = _TP_MULT
+bt.ENTRY_R       = _ENTRY_R
+bt.TOUCH_VOL_MIN = _TOUCH_VOL_MIN
 
 COINS = [
     # Core
@@ -336,9 +338,12 @@ def _win_loss_analysis(trades: list) -> dict:
         if not g: return None
         n = len(g)
         long_n   = sum(1 for t in g if t['type'] == 'Long')
-        # C3 volume strength (c3_vol / avg 20H vol at FVG formation)
+        # C3 volume strength at FVG formation (c3_vol / avg 20H)
         vol_vals = [t.get('vol_ratio', 0.0) for t in g if t.get('vol_ratio', 0.0) > 0]
         avg_vol  = sum(vol_vals) / len(vol_vals) if vol_vals else 0.0
+        # Touch candle volume (M5 candle that first hits OCL)
+        tv_vals  = [t.get('touch_vol_ratio', 0.0) for t in g if t.get('touch_vol_ratio', 0.0) > 0]
+        avg_tvol = sum(tv_vals) / len(tv_vals) if tv_vals else 0.0
         # FVG gap size as % of entry price
         gap_vals = [t.get('atr_ratio', 0.0) for t in g if t.get('atr_ratio', 0.0) > 0]
         avg_gap  = sum(gap_vals) / len(gap_vals) * 100 if gap_vals else 0.0
@@ -358,6 +363,7 @@ def _win_loss_analysis(trades: list) -> dict:
             'n'           : n,
             'long_pct'    : long_n / n * 100,
             'avg_vol'     : avg_vol,
+            'avg_tvol'    : avg_tvol,
             'avg_gap'     : avg_gap,
             'avg_hour'    : avg_hour,
             'dom_session' : dom_session,
@@ -377,10 +383,14 @@ def _insight(ws, ls) -> str:
     dd = ws['long_pct'] - ls['long_pct']
     if   dd >  20: clues.append(f'Long lebih baik ({ws["long_pct"]:.0f}% vs {ls["long_pct"]:.0f}%)')
     elif dd < -20: clues.append(f'Short lebih baik ({100-ws["long_pct"]:.0f}% vs {100-ls["long_pct"]:.0f}%)')
-    # C3 volume strength
+    # C3 volume strength (FVG formation candle)
     vd = ws['avg_vol'] - ls['avg_vol']
     if   vd >  0.3: clues.append(f'Vol C3 lebih kuat saat win ({ws["avg_vol"]:.1f}× vs {ls["avg_vol"]:.1f}×)')
     elif vd < -0.3: clues.append(f'Vol C3 justru lebih lemah saat win ({ws["avg_vol"]:.1f}× vs {ls["avg_vol"]:.1f}×)')
+    # Touch candle volume (M5 saat harga menyentuh OCL)
+    tvd = ws['avg_tvol'] - ls['avg_tvol']
+    if   tvd >  0.3: clues.append(f'Vol sentuh OCL lebih besar saat win ({ws["avg_tvol"]:.1f}× vs {ls["avg_tvol"]:.1f}×)')
+    elif tvd < -0.3: clues.append(f'Vol sentuh OCL lebih kecil saat win ({ws["avg_tvol"]:.1f}× vs {ls["avg_tvol"]:.1f}×)')
     # FVG gap size
     gd = ws['avg_gap'] - ls['avg_gap']
     if   gd >  0.05: clues.append(f'FVG lebih besar saat win ({ws["avg_gap"]:.2f}% vs {ls["avg_gap"]:.2f}%)')
@@ -403,10 +413,11 @@ def _fmt_grp(s) -> str:
     """Compact one-line summary for a win/loss group (fvg_strong)."""
     if s is None: return '—'
     dir_lbl  = f'Long {s["long_pct"]:.0f}%' if s['long_pct'] >= 50 else f'Short {100-s["long_pct"]:.0f}%'
-    vol_lbl  = f'Vol {s["avg_vol"]:.1f}×'  if s['avg_vol']  > 0 else 'Vol —'
+    vol_lbl  = f'C3 {s["avg_vol"]:.1f}×'   if s['avg_vol']  > 0 else 'C3 —'
+    tvol_lbl = f'Tch {s["avg_tvol"]:.1f}×' if s['avg_tvol'] > 0 else 'Tch —'
     gap_lbl  = f'Gap {s["avg_gap"]:.2f}%'  if s['avg_gap']  > 0 else 'Gap —'
     sess_lbl = s['dom_session']
-    return f'{dir_lbl} · {vol_lbl} · {gap_lbl} · {sess_lbl}'
+    return f'{dir_lbl} · {vol_lbl} · {tvol_lbl} · {gap_lbl} · {sess_lbl}'
 
 
 # ── Main runner (background thread) ──────────────────────────────────────
@@ -414,7 +425,7 @@ def _run():
     global _phase, _results, _quarter_stats, _all_trades, _compound_final_bal
 
     _log_msg("=" * 62)
-    _log_msg(f"BACKTEST 22 COIN — {_ENTRY_MODE.upper()} SL={_SL_MULT}R TP={_TP_MULT}R | Full Year 2025 | Modal ${INITIAL_BALANCE:.0f} | Risk 1%")
+    _log_msg(f"BACKTEST 22 COIN — {_ENTRY_MODE.upper()} SL={_SL_MULT}R TP={_TP_MULT}R TouchVol≥{_TOUCH_VOL_MIN}× | Full Year 2025 | Modal ${INITIAL_BALANCE:.0f} | Risk 1%")
     _log_msg(f"{len(COINS)} Coins: {', '.join(COINS)}")
     _log_msg("=" * 62)
 
