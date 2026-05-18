@@ -808,7 +808,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
         # ════════════════════════════════════════════════════════
         # OPSI B4: fvg_strong — FVG kuat (C3 volume > avg 20H)
         # Entry limit di batas FVG (fvg_top Long / fvg_bot Short)
-        # SL = 50% dari gap FVG. TP = swing level yg di-break BOS.
+        # SL = SL_MULT × gap dari entry, TP = TP_MULT × gap dari entry
         # ════════════════════════════════════════════════════════
         elif ENTRY_MODE == 'fvg_strong':
             c3_vol  = float(used_fvg.get('c3_vol',   0.0))
@@ -822,25 +822,16 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
             if gap_size <= 0:
                 c_dir_fail += 1; i += 12; continue
 
-            # TP = swing baru yg terbentuk setelah BOS (min/max M5 48H sebelum FVG touch)
-            # Ini adalah swing extreme yg price buat setelah BOS, sebelum retest FVG
-            tp_lkb_start = max(0, found_fvg_idx - 576)
-            tp_window    = df_m5_full.iloc[tp_lkb_start:found_fvg_idx]
-
             if stype == "Long":
-                entry_p = fvg_top                       # limit: price dips ke sini
-                sl_p    = fvg_top - 0.5 * gap_size      # SL di 50% gap (midpoint)
-                tp_p    = float(tp_window['high'].max()) if len(tp_window) else (bos_tp_lvl or fvg_top + 2 * gap_size)
-                if tp_p <= entry_p:                     # TP harus di atas entry (Long)
-                    c_dir_fail += 1; i += 12; continue
+                entry_p = fvg_top
+                sl_p    = fvg_top - SL_MULT * gap_size
+                tp_p    = fvg_top + TP_MULT * gap_size
             else:
-                entry_p = fvg_bot                       # limit: price rallies ke sini
-                sl_p    = fvg_bot + 0.5 * gap_size      # SL di 50% gap (midpoint)
-                tp_p    = float(tp_window['low'].min()) if len(tp_window) else (bos_tp_lvl or fvg_bot - 2 * gap_size)
-                if tp_p >= entry_p:                     # TP harus di bawah entry (Short)
-                    c_dir_fail += 1; i += 12; continue
+                entry_p = fvg_bot
+                sl_p    = fvg_bot + SL_MULT * gap_size
+                tp_p    = fvg_bot - TP_MULT * gap_size
 
-            d = 0.5 * gap_size
+            d = SL_MULT * gap_size
             if d > 0 and d >= entry_p * MIN_DIST_PCT:
                 _entry_idx   = found_fvg_idx
                 _entry_price = entry_p
