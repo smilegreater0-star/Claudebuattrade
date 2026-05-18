@@ -33,34 +33,32 @@ TRAIL_STOP   = 0.0      # trailing SL step dalam R (0 = disabled, pakai fixed TP
 TOUCH_VOL_MIN = 0.8     # fvg_strong: touch candle vol min (× avg 20 M5 candle; 0 = no filter)
 MAX_GAP_PCT   = 0.005   # fvg_strong: max gap_size / entry_p (0 = no filter)
 
-# Per-coin filters — derived from win/loss analysis (loss-group averages as boundary)
-# c3_max/c3_min : bounds on C3 vol ratio (c3_vol/avg_20H) at FVG formation
-# tch_max/tch_min: bounds on touch candle vol ratio (vol/avg_20M5) at OCL touch
-# skip_session  : skip trades whose OCL-touch candle falls in this session (UTC)
-#                 Asia=0-7, London=8-15, NY=16-23
+# Per-coin filters — hanya session filter (structural, tidak overfit ke vol noise)
+# skip_session: skip trades yang OCL-touch jatuh di sesi ini (UTC)
+#               Asia=0-7, London=8-15, NY=16-23
 COIN_FILTERS = {
-    'XVGUSDT':      {'c3_max': 6.9,  'tch_max': 21.3, 'skip_session': 'Asia'},
-    'BELUSDT':      {'c3_min': 2.4,  'tch_min': 3.8,  'skip_session': None},
-    '1000BONKUSDT': {                 'tch_min': 2.0,  'skip_session': 'NY'},
-    'BERAUSDT':     {'c3_max': 2.1,  'tch_min': 2.2,  'skip_session': 'NY'},
-    'USUALUSDT':    {'c3_max': 2.1,  'tch_max': 3.9,  'skip_session': 'London'},
-    '1000PEPEUSDT': {'c3_max': 2.1,  'tch_max': 2.3,  'skip_session': None},
-    'WIFUSDT':      {                 'tch_min': 1.9,  'skip_session': None},
-    'PENGUUSDT':    {                 'tch_max': 2.9,  'skip_session': 'Asia'},
-    'PNUTUSDT':     {                 'tch_min': 2.2,  'skip_session': 'London'},
-    'AVAXUSDT':     {'c3_max': 1.8,  'tch_max': 3.9,  'skip_session': 'Asia'},
-    'ONDOUSDT':     {                 'tch_min': 3.3,  'skip_session': 'NY'},
-    'EIGENUSDT':    {'c3_max': 1.8,  'tch_min': 2.3,  'skip_session': 'NY'},
-    'LINKUSDT':     {'c3_max': 2.0,  'tch_max': 4.0,  'skip_session': 'Asia'},
-    'VIRTUALUSDT':  {'c3_min': 1.8,  'tch_min': 2.4,  'skip_session': 'NY'},
-    'ORCAUSDT':     {'c3_max': 3.8,  'tch_max': 2.6,  'skip_session': None},
-    'DOGEUSDT':     {                 'tch_min': 2.3,  'skip_session': 'London'},
-    'ARBUSDT':      {'c3_min': 1.8,  'tch_min': 2.3,  'skip_session': 'Asia'},
-    'NEARUSDT':     {'c3_max': 2.4,  'tch_min': 3.6,  'skip_session': 'NY'},
-    'STORJUSDT':    {                 'tch_min': 5.0,  'skip_session': None},
-    'ENAUSDT':      {'c3_max': 1.8,  'tch_min': 2.2,  'skip_session': 'NY'},
-    'ADAUSDT':      {                 'tch_max': 2.8,  'skip_session': 'London'},
-    'SHIB1000USDT': {'c3_min': 1.7,  'tch_min': 3.8,  'skip_session': None},
+    'XVGUSDT':      {'skip_session': 'Asia'},
+    'BELUSDT':      {'skip_session': None},
+    '1000BONKUSDT': {'skip_session': 'NY'},
+    'BERAUSDT':     {'skip_session': 'NY'},
+    'USUALUSDT':    {'skip_session': 'London'},
+    '1000PEPEUSDT': {'skip_session': None},
+    'WIFUSDT':      {'skip_session': None},
+    'PENGUUSDT':    {'skip_session': 'Asia'},
+    'PNUTUSDT':     {'skip_session': 'London'},
+    'AVAXUSDT':     {'skip_session': 'Asia'},
+    'ONDOUSDT':     {'skip_session': 'NY'},
+    'EIGENUSDT':    {'skip_session': 'NY'},
+    'LINKUSDT':     {'skip_session': 'Asia'},
+    'VIRTUALUSDT':  {'skip_session': 'NY'},
+    'ORCAUSDT':     {'skip_session': None},
+    'DOGEUSDT':     {'skip_session': 'London'},
+    'ARBUSDT':      {'skip_session': 'Asia'},
+    'NEARUSDT':     {'skip_session': 'NY'},
+    'STORJUSDT':    {'skip_session': None},
+    'ENAUSDT':      {'skip_session': 'NY'},
+    'ADAUSDT':      {'skip_session': 'London'},
+    'SHIB1000USDT': {'skip_session': None},
 }
 
 DATA_DIR = "/home/claude/fulldata"
