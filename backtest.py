@@ -237,14 +237,17 @@ def find_last_swing_bos(df):
 # ============================================================
 
 def _gap_vol_fields(df, c3_idx):
-    """Extract volume fields for candle 3 of an FVG (df in H1)."""
-    has_vol = 'vol' in df.columns
+    """Extract volume + OCL fields for candle 3 of an FVG (df in H1)."""
+    has_vol  = 'vol' in df.columns
+    c2_idx   = c3_idx - 1
+    c2_close = float(df['close'].iloc[c2_idx]) if c2_idx >= 0 else 0.0
+    c3_open  = float(df['open'].iloc[c3_idx])  if c3_idx < len(df) else 0.0
     if not has_vol:
-        return {'c3_vol': 0.0, 'vol_avg20h': 0.0}
-    c3_vol   = float(df['vol'].iloc[c3_idx])
+        return {'c3_vol': 0.0, 'vol_avg20h': 0.0, 'c2_close': c2_close, 'c3_open': c3_open}
+    c3_vol    = float(df['vol'].iloc[c3_idx])
     avg_start = max(0, c3_idx - 20)
-    vol_avg  = float(df['vol'].iloc[avg_start:c3_idx].mean()) if c3_idx > 0 else 0.0
-    return {'c3_vol': c3_vol, 'vol_avg20h': vol_avg}
+    vol_avg   = float(df['vol'].iloc[avg_start:c3_idx].mean()) if c3_idx > 0 else 0.0
+    return {'c3_vol': c3_vol, 'vol_avg20h': vol_avg, 'c2_close': c2_close, 'c3_open': c3_open}
 
 def get_internal_gaps(df, stype, bos_idx, lookback=60):
     gaps = []
@@ -599,6 +602,10 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
                     sh_above  = [s for s in sh_h1 if s['val'] > swing_val]
                     choch_new = sh_above[-1]['val'] if sh_above else None
 
+                # fvg_strong: CHOCH wajib ada
+                if ENTRY_MODE == 'fvg_strong' and choch_new is None:
+                    i += 12; continue
+
                 # FVG: semua FVG fresh di H1 (tidak perlu dari range BOS tertentu)
                 gaps_new = get_internal_gaps(df_h1, stype_new, len(df_h1) - 1)
                 if choch_new:
@@ -606,6 +613,11 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
                         gaps_new = [g for g in gaps_new if g['bottom'] >= choch_new]
                     else:
                         gaps_new = [g for g in gaps_new if g['top'] <= choch_new]
+                # fvg_strong: hanya pakai FVG kuat (C3 vol > avg 20H)
+                if ENTRY_MODE == 'fvg_strong':
+                    gaps_new = [g for g in gaps_new
+                                if g.get('c3_vol', 0) > g.get('vol_avg20h', 0) > 0
+                                and g.get('c2_close', 0) > 0]
 
                 active_bos_key     = bos_key
                 active_gaps        = gaps_new
@@ -643,17 +655,25 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
         if not active_gaps:
             i += 12; continue
 
-        # Scan M5 dalam blok H1 ini untuk FVG touch
+        # Scan M5 dalam blok H1 ini untuk FVG touch / OCL fill
         found_fvg_idx = -1
         used_fvg      = None
 
         for fvg in active_gaps:
             fvg_top = float(fvg['top']); fvg_bot = float(fvg['bottom'])
+            # fvg_strong: trigger di OCL (C2 close), bukan zona FVG
+            if ENTRY_MODE == 'fvg_strong':
+                ocl = float(fvg.get('c2_close', fvg_bot if active_stype == 'Short' else fvg_top))
+                trig_long  = ocl
+                trig_short = ocl
+            else:
+                trig_long  = fvg_top
+                trig_short = fvg_bot
             for k in range(i, blk_end_m5):
                 ck = df_m5_full.iloc[k]
-                if active_stype == "Long"  and float(ck['low'])  <= fvg_top:
+                if active_stype == "Long"  and float(ck['low'])  <= trig_long:
                     found_fvg_idx = k; used_fvg = fvg; break
-                if active_stype == "Short" and float(ck['high']) >= fvg_bot:
+                if active_stype == "Short" and float(ck['high']) >= trig_short:
                     found_fvg_idx = k; used_fvg = fvg; break
             if found_fvg_idx >= 0: break
 
@@ -811,25 +831,24 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
         # SL = SL_MULT × gap dari entry, TP = TP_MULT × gap dari entry
         # ════════════════════════════════════════════════════════
         elif ENTRY_MODE == 'fvg_strong':
-            c3_vol  = float(used_fvg.get('c3_vol',   0.0))
-            vol_avg = float(used_fvg.get('vol_avg20h', 0.0))
-            if vol_avg <= 0 or c3_vol <= vol_avg:
-                c_dir_fail += 1; i += 12; continue
-
+            # Volume filter sudah di active_gaps (BOS time), tidak perlu cek lagi
             fvg_top  = float(used_fvg['top'])
             fvg_bot  = float(used_fvg['bottom'])
             gap_size = fvg_top - fvg_bot
             if gap_size <= 0:
                 c_dir_fail += 1; i += 12; continue
 
+            # Entry di OCL = C2 close (level transisi impulse → continuation)
+            c2_close = float(used_fvg.get('c2_close',
+                             fvg_bot if stype == 'Short' else fvg_top))
+            entry_p  = c2_close
+
             if stype == "Long":
-                entry_p = fvg_top
-                sl_p    = fvg_top - SL_MULT * gap_size
-                tp_p    = fvg_top + TP_MULT * gap_size
+                sl_p = entry_p - SL_MULT * gap_size
+                tp_p = entry_p + TP_MULT * gap_size
             else:
-                entry_p = fvg_bot
-                sl_p    = fvg_bot + SL_MULT * gap_size
-                tp_p    = fvg_bot - TP_MULT * gap_size
+                sl_p = entry_p + SL_MULT * gap_size
+                tp_p = entry_p - TP_MULT * gap_size
 
             d = SL_MULT * gap_size
             if d > 0 and d >= entry_p * MIN_DIST_PCT:
