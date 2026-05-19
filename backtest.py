@@ -33,33 +33,6 @@ TRAIL_STOP   = 0.0      # trailing SL step dalam R (0 = disabled, pakai fixed TP
 TOUCH_VOL_MIN = 0.8     # fvg_strong: touch candle vol min (× avg 20 M5 candle; 0 = no filter)
 MAX_GAP_PCT   = 0.005   # fvg_strong: max gap_size / entry_p (0 = no filter)
 
-# Per-coin filters — hanya session filter (structural, tidak overfit ke vol noise)
-# skip_session: skip trades yang OCL-touch jatuh di sesi ini (UTC)
-#               Asia=0-7, London=8-15, NY=16-23
-COIN_FILTERS = {
-    'XVGUSDT':      {'skip_session': None},
-    'BELUSDT':      {'skip_session': None},
-    '1000BONKUSDT': {'skip_session': None},
-    'BERAUSDT':     {'skip_session': None},
-    'USUALUSDT':    {'skip_session': None},
-    '1000PEPEUSDT': {'skip_session': None},
-    'WIFUSDT':      {'skip_session': None},
-    'PENGUUSDT':    {'skip_session': None},
-    'PNUTUSDT':     {'skip_session': None},
-    'AVAXUSDT':     {'skip_session': None},
-    'ONDOUSDT':     {'skip_session': None},
-    'EIGENUSDT':    {'skip_session': None},
-    'LINKUSDT':     {'skip_session': None},
-    'VIRTUALUSDT':  {'skip_session': None},
-    'ORCAUSDT':     {'skip_session': None},
-    'DOGEUSDT':     {'skip_session': None},
-    'ARBUSDT':      {'skip_session': None},
-    'NEARUSDT':     {'skip_session': None},
-    'STORJUSDT':    {'skip_session': None},
-    'ENAUSDT':      {'skip_session': None},
-    'ADAUSDT':      {'skip_session': None},
-    'SHIB1000USDT': {'skip_session': None},
-}
 
 DATA_DIR = "/home/claude/fulldata"
 FILES = {
@@ -927,26 +900,6 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
                     _touch_vol_ratio = 0.0
                 if TOUCH_VOL_MIN > 0 and 0 < _touch_vol_ratio < TOUCH_VOL_MIN:
                     c_dir_fail += 1; i += 12; continue
-
-                # Per-coin filters (win/loss pattern analysis)
-                _flt = COIN_FILTERS.get(symbol, {})
-                if _flt:
-                    _c3r = float(used_fvg.get('c3_vol', 0)) / \
-                           (float(used_fvg.get('vol_avg20h', 1)) or 1)
-                    if _flt.get('c3_max') is not None and _c3r > _flt['c3_max']:
-                        c_dir_fail += 1; i += 12; continue
-                    if _flt.get('c3_min') is not None and 0 < _c3r < _flt['c3_min']:
-                        c_dir_fail += 1; i += 12; continue
-                    if _touch_vol_ratio > 0:
-                        if _flt.get('tch_max') is not None and _touch_vol_ratio > _flt['tch_max']:
-                            c_dir_fail += 1; i += 12; continue
-                        if _flt.get('tch_min') is not None and _touch_vol_ratio < _flt['tch_min']:
-                            c_dir_fail += 1; i += 12; continue
-                    if _flt.get('skip_session'):
-                        _hr  = pd.Timestamp(df_m5_full.iloc[found_fvg_idx]['ts']).hour
-                        _ses = 'Asia' if _hr < 8 else ('London' if _hr < 16 else 'NY')
-                        if _ses == _flt['skip_session']:
-                            c_dir_fail += 1; i += 12; continue
 
                 _entry_idx   = found_fvg_idx
                 _entry_price = entry_p
