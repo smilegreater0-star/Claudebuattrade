@@ -513,14 +513,17 @@ def simulate_trade(df_m5, entry_idx, entry, sl, tp, stype, balance, _skip_reason
     total_fee = 2 * notional * TAKER_FEE
 
     # Walk forward candle-by-candle
-    future        = df_m5.iloc[entry_idx+1:entry_idx+1000]  # max 1000 candle (~83 jam)
-    trail_sl      = sl
-    peak          = entry
-    max_float     = 0.0    # max favorable price move from entry
-    trail_engaged = False  # trailing SL moved to BE or better
-    outcome       = 'timeout'
-    exit_p        = float(future.iloc[-1]['close']) if len(future) else entry
-    exit_ts       = future.iloc[-1]['ts'] if len(future) else None
+    future           = df_m5.iloc[entry_idx+1:entry_idx+1000]  # max 1000 candle (~83 jam)
+    trail_sl         = sl
+    peak             = entry
+    max_float        = 0.0    # max favorable price move from entry
+    trail_engaged    = False  # trailing SL moved to BE or better
+    trail_prev_sl    = trail_sl
+    trail_no_move    = 0      # candle counter sejak trail_sl terakhir bergerak
+    TRAIL_TIMEOUT_C  = 288    # 24 jam × 12 candle/jam
+    outcome          = 'timeout'
+    exit_p           = float(future.iloc[-1]['close']) if len(future) else entry
+    exit_ts          = future.iloc[-1]['ts'] if len(future) else None
 
     for _, c in future.iterrows():
         h, l = float(c['high']), float(c['low'])
@@ -554,6 +557,15 @@ def simulate_trade(df_m5, entry_idx, entry, sl, tp, stype, balance, _skip_reason
                 exit_p = cur_sl; exit_ts = c['ts']; outcome = 'sl'; break
             if l <= tp:
                 exit_p = tp;    exit_ts = c['ts']; outcome = 'tp'; break
+        # Trail timeout: keluar jika trailing SL tidak bergerak selama 24 jam
+        if TRAIL_STOP > 0:
+            if trail_sl != trail_prev_sl:
+                trail_no_move = 0
+                trail_prev_sl = trail_sl
+            else:
+                trail_no_move += 1
+            if trail_no_move >= TRAIL_TIMEOUT_C:
+                exit_p = float(c['close']); exit_ts = c['ts']; outcome = 'timeout'; break
 
     if stype == "Long":
         pnl = (exit_p - entry) * qty - total_fee
@@ -939,7 +951,8 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
                 _entry_idx   = found_fvg_idx
                 _entry_price = entry_p
                 _sl_price    = sl_p
-                _final_tp    = tp_p  # TP_MULT×gap — trailing stop keluar lebih awal jika aktif
+                _final_tp    = tp_p if TRAIL_STOP == 0 else (
+                    entry_p + 1000 * gap_size if stype == "Long" else entry_p - 1000 * gap_size)
                 _dist        = d
                 _fvg_d       = gap_size
                 # FVG vol strength (C3 at formation) and gap size for analysis
@@ -1285,10 +1298,10 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
                                 if _rev_open_idx < total else None
                 if _rev_type == "Long":
                     _rev_sl = _rev_entry - _rev_dist
-                    _rev_tp = _rev_entry + TP_MULT * _rev_dist
+                    _rev_tp = _rev_entry + 1000 * _rev_dist
                 else:
                     _rev_sl = _rev_entry + _rev_dist
-                    _rev_tp = _rev_entry - TP_MULT * _rev_dist
+                    _rev_tp = _rev_entry - 1000 * _rev_dist
 
                 _rev_extra = {}
                 rev_pnl, rev_outcome, rev_exit_p, rev_exit_ts = simulate_trade(
