@@ -400,13 +400,33 @@ def move_sl(symbol, new_sl):
 # TRAILING SL + REVERSE POSITION
 # ============================================================
 
+def _get_actual_exit_price(symbol):
+    """
+    Query Bybit closed PnL untuk ambil harga exit actual posisi terakhir.
+    Lebih akurat dari last_price (mark price di cek sebelumnya).
+    """
+    try:
+        res = session.get_closed_pnl(category=CATEGORY, symbol=symbol, limit=1)
+        if res['retCode'] == 0 and res['result']['list']:
+            last = res['result']['list'][0]
+            exit_p = float(last.get('avgExitPrice', 0))
+            if exit_p > 0:
+                return exit_p
+    except Exception as e:
+        print(f"⚠️ {symbol}: get_closed_pnl error: {e}")
+    return None
+
+
 def check_trailing_sl(coin):
     """
     Dipanggil setiap M5 close.
-    - Track trail_engaged: harga sudah lewati BE (TRAIL_STOP × dist dari entry)
-    - Jika posisi tutup: cek apakah immediate SL atau trail → buka reverse (max 2×)
-    Bybit handle trailing stop natively via trailingStop param saat order.
-    Di sini kita tracking state untuk keputusan reverse.
+
+    Reverse logic:
+    - Bot cek setiap M5 (5 menit). SL bisa kena kapan saja dalam candle.
+    - Saat posisi tutup terdeteksi, query get_closed_pnl untuk harga exit actual
+      (bukan last_price yang hanya mark price dari cek sebelumnya).
+    - Reverse dibuka sebagai market order di harga pasar saat itu.
+    - SL reverse = exit_actual ± dist (sama dengan dist trade asli).
     """
     if coin not in active_positions:
         return
@@ -415,44 +435,57 @@ def check_trailing_sl(coin):
     pos = get_open_position(coin)
 
     if pos is None:
-        # Posisi sudah tutup — keputusan reverse
-        entry      = p['entry']
-        side       = p['side']
-        dist       = p.get('dist', 0)
-        last_price = p.get('last_price', entry)
-        rev_count  = p.get('rev_count', 0)
+        # Posisi sudah tutup — ambil harga exit actual dari Bybit
+        entry     = p['entry']
+        side      = p['side']
+        dist      = p.get('dist', 0)
+        rev_count = p.get('rev_count', 0)
+
+        # Harga exit actual dari Bybit closed PnL
+        actual_exit = _get_actual_exit_price(coin)
+        last_price  = p.get('last_price', entry)
 
         if TRAIL_STOP > 0 and dist > 0 and rev_count < 2:
-            moved = (last_price - entry) if side == "Buy" else (entry - last_price)
-            imm_sl     = moved < -0.9 * dist           # exit sebelum sempat bergerak
-            trail_hit  = p.get('trail_engaged', False)  # pernah BE atau lebih
+            # Gunakan actual_exit jika ada, fallback ke last_price/sl
+            if actual_exit:
+                exit_price = actual_exit
+            else:
+                exit_price = last_price
+
+            moved      = (exit_price - entry) if side == "Buy" else (entry - exit_price)
+            imm_sl     = moved < -0.9 * dist          # keluar dekat SL awal, belum sempat bergerak
+            trail_hit  = p.get('trail_engaged', False) # pernah capai BE atau lebih
+
+            print(f"📊 {coin}: Posisi tutup | entry:{entry:.6f} exit:{exit_price:.6f} "
+                  f"moved:{moved/dist:.2f}R | imm_sl={imm_sl} trail={trail_hit}")
 
             if imm_sl or trail_hit:
                 rev_side  = "Sell" if side == "Buy" else "Buy"
-                # Immediate SL: gunakan harga SL actual (bukan last_price yang bisa beda)
-                rev_entry = p['sl'] if imm_sl else last_price
-                rev_sl    = rev_entry - dist if rev_side == "Buy" else rev_entry + dist
+                # SL reverse = jarak dist dari harga exit actual
+                rev_sl    = exit_price - dist if rev_side == "Buy" else exit_price + dist
                 rev_trail = TRAIL_STOP * dist
                 reason    = "imm" if imm_sl else "trail"
-                print(f"🔄 {coin}: Posisi {side} tutup ({reason}) → "
-                      f"Reverse {rev_side} @ {rev_entry:.6f} (rev#{rev_count+1})")
+                print(f"🔄 {coin}: Reverse {rev_side} @ market "
+                      f"(exit actual:{exit_price:.6f}) SL:{rev_sl:.6f} (rev#{rev_count+1})")
 
-                order_id = place_market_order(coin, rev_side, rev_entry, rev_sl, rev_trail)
+                order_id = place_market_order(coin, rev_side, exit_price, rev_sl, rev_trail)
                 if order_id:
                     active_positions[coin] = {
                         'side'          : rev_side,
-                        'entry'         : rev_entry,
+                        'entry'         : exit_price,
                         'sl'            : rev_sl,
                         'dist'          : dist,
                         'trail_dist'    : rev_trail,
                         'trail_engaged' : False,
-                        'last_price'    : rev_entry,
+                        'trail_set'     : False,
+                        'last_price'    : exit_price,
                         'rev_count'     : rev_count + 1,
                         'entry_time'    : time.time(),
                     }
                     return
 
-        print(f"📭 {coin}: Posisi tutup.")
+        pnl_str = f"{actual_exit:.6f}" if actual_exit else "?"
+        print(f"📭 {coin}: Posisi tutup @ {pnl_str}.")
         del active_positions[coin]
         return
 
