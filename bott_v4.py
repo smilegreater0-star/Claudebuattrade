@@ -362,6 +362,7 @@ def place_market_order(symbol, side, entry, sl, trail_dist):
             category=CATEGORY, symbol=symbol, side=side,
             orderType="Market", qty=str(qty),
             stopLoss=str(sl_r),
+            positionIdx=1 if side == "Buy" else 2,
             timeInForce="IOC"
         )
         if res['retCode'] == 0:
@@ -385,11 +386,12 @@ def get_open_position(symbol):
         return None
 
 
-def move_sl(symbol, new_sl):
+def move_sl(symbol, new_sl, side="Buy"):
     try:
         res = session.set_trading_stop(
             category=CATEGORY, symbol=symbol,
-            stopLoss=str(new_sl), positionIdx=0
+            stopLoss=str(new_sl),
+            positionIdx=1 if side == "Buy" else 2
         )
         return res['retCode'] == 0
     except:
@@ -507,7 +509,8 @@ def check_trailing_sl(coin):
                 try:
                     res_ts = session.set_trading_stop(
                         category=CATEGORY, symbol=coin,
-                        trailingStop=str(trail_r), positionIdx=0
+                        trailingStop=str(trail_r),
+                        positionIdx=1 if p['side'] == 'Buy' else 2
                     )
                     if res_ts['retCode'] == 0:
                         active_positions[coin]['trail_set'] = True
