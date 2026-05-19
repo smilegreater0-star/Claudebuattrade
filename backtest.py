@@ -939,9 +939,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
                 _entry_idx   = found_fvg_idx
                 _entry_price = entry_p
                 _sl_price    = sl_p
-                # Trailing stop mode: TP set very far — no fixed exit, trail handles it
-                _final_tp    = tp_p if TRAIL_STOP == 0 else (
-                    entry_p + 1000 * gap_size if stype == "Long" else entry_p - 1000 * gap_size)
+                _final_tp    = tp_p  # TP_MULT×gap — trailing stop keluar lebih awal jika aktif
                 _dist        = d
                 _fvg_d       = gap_size
                 # FVG vol strength (C3 at formation) and gap size for analysis
@@ -1287,10 +1285,10 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
                                 if _rev_open_idx < total else None
                 if _rev_type == "Long":
                     _rev_sl = _rev_entry - _rev_dist
-                    _rev_tp = _rev_entry + 1000 * _rev_dist
+                    _rev_tp = _rev_entry + TP_MULT * _rev_dist
                 else:
                     _rev_sl = _rev_entry + _rev_dist
-                    _rev_tp = _rev_entry - 1000 * _rev_dist
+                    _rev_tp = _rev_entry - TP_MULT * _rev_dist
 
                 _rev_extra = {}
                 rev_pnl, rev_outcome, rev_exit_p, rev_exit_ts = simulate_trade(
