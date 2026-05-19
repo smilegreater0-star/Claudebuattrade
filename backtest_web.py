@@ -38,13 +38,27 @@ bt.MAX_GAP_PCT   = _MAX_GAP_PCT
 bt.TRAIL_STOP    = _TRAIL_STOP
 
 COINS = [
-    # Batch 1 (8 kandidat baru kemarin)
-    'SOLUSDT', 'APTUSDT', 'OPUSDT', 'RUNEUSDT', 'WLDUSDT',
-    'JUPUSDT', 'AAVEUSDT', 'LTCUSDT',
-    # Batch 2 (12 kandidat baru)
-    'HYPEUSDT', 'SEIUSDT', 'TIAUSDT', 'RENDERUSDT',
-    'DOTUSDT', 'UNIUSDT', 'ATOMUSDT', 'CRVUSDT',
-    'STXUSDT', 'FETUSDT', 'GRTUSDT', 'ARUSDT',
+    # Batch 4 — 20 coin baru belum pernah ditest
+    'BNBUSDT',   # L1 large cap, volume tertinggi after BTC/ETH
+    'XLMUSDT',   # Stellar, old reliable, trending
+    'GALAUSDT',  # Gaming/NFT, high retail interest
+    'ALGOUSDT',  # Algorand L1
+    'FILUSDT',   # Filecoin storage protocol
+    'LDOUSDT',   # Lido staking top DeFi
+    'MKRUSDT',   # MakerDAO DeFi blue chip
+    'MANAUSDT',  # Metaverse, volatile trending
+    'SANDUSDT',  # Metaverse, high volume
+    'AXSUSDT',   # Axie gaming, very volatile
+    'CHZUSDT',   # Chiliz sports tokens
+    'FTMUSDT',   # Fantom L1
+    'SNXUSDT',   # Synthetix synthetic assets
+    'APEUSDT',   # ApeCoin NFT ecosystem
+    'GMXUSDT',   # GMX perp DEX
+    '1INCHUSDT', # DEX aggregator
+    'RAYUSDT',   # Raydium Solana DEX
+    'PYTHUSDT',  # Pyth oracle
+    'ZROUSDT',   # LayerZero
+    'MASKUSDT',  # Mask Network social
 ]
 
 # 2025-01-01 00:00:00 UTC  →  2025-12-31 23:59:59 UTC  (dalam ms)
