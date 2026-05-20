@@ -75,8 +75,9 @@ if not API_KEY or not API_SECRET:
 session = HTTP(testnet=TESTNET, api_key=API_KEY, api_secret=API_SECRET)
 
 # ── Strategy params (sinkron dengan backtest.py) ─────────────
-SL_MULT       = 6.2     # SL = SL_MULT × gap_size dari entry
-TRAIL_STOP    = 1.0     # trailing distance = TRAIL_STOP × dist
+SL_MULT       = 6.2     # SL = SL_MULT × gap_size dari entry (fallback)
+TRAIL_STOP    = 0.15    # trailing distance = TRAIL_STOP × dist (tight trail = capture besar)
+SBR_MODE      = True    # True = SBR entry di C1.close + SL di C1.low, False = OCL entry lama
 TOUCH_VOL_MIN = 0.8     # touch candle volume min (× avg 20 M5 candle)
 MAX_GAP_PCT   = 0.006   # max gap_size / entry_price (FVG ≤ 0.60%)
 
@@ -224,16 +225,24 @@ def find_last_swing_bos(df):
 # ============================================================
 
 def _gap_vol_fields(df, c3_idx):
-    """Extract volume + OCL fields untuk candle ke-3 FVG (df dalam H1)."""
+    """Extract volume + OCL + C1 fields untuk FVG (df dalam H1). C1=c3_idx-2."""
     c2_idx   = c3_idx - 1
+    c1_idx   = c3_idx - 2
     c2_close = float(df['close'].iloc[c2_idx]) if c2_idx >= 0 else 0.0
     c3_open  = float(df['open'].iloc[c3_idx])  if c3_idx < len(df) else 0.0
+    c1_open  = float(df['open'].iloc[c1_idx])  if c1_idx >= 0 else 0.0
+    c1_close = float(df['close'].iloc[c1_idx]) if c1_idx >= 0 else 0.0
+    c1_low   = float(df['low'].iloc[c1_idx])   if c1_idx >= 0 else 0.0
+    c1_high  = float(df['high'].iloc[c1_idx])  if c1_idx >= 0 else 0.0
+    base = {'c2_close': c2_close, 'c3_open': c3_open,
+            'c1_open': c1_open, 'c1_close': c1_close,
+            'c1_low': c1_low,   'c1_high': c1_high}
     if 'vol' not in df.columns:
-        return {'c3_vol': 0.0, 'vol_avg20h': 0.0, 'c2_close': c2_close, 'c3_open': c3_open}
+        return {**base, 'c3_vol': 0.0, 'vol_avg20h': 0.0}
     c3_vol    = float(df['vol'].iloc[c3_idx])
     avg_start = max(0, c3_idx - 20)
     vol_avg   = float(df['vol'].iloc[avg_start:c3_idx].mean()) if c3_idx > 0 else 0.0
-    return {'c3_vol': c3_vol, 'vol_avg20h': vol_avg, 'c2_close': c2_close, 'c3_open': c3_open}
+    return {**base, 'c3_vol': c3_vol, 'vol_avg20h': vol_avg}
 
 
 def get_internal_gaps(df, stype, bos_idx, lookback=60):
@@ -311,12 +320,13 @@ def candle_touches_fvg(candle, fvg, stype):
 
 
 def _get_strong_fvgs(df_h1, stype, bos_idx, choch_level=None):
-    """FVG kuat: C3 vol > avg20H, c3_open ada, CHOCH filter, MAX_GAP_PCT filter."""
+    """FVG kuat: C3 vol > avg20H, c3_open ada, c1_close ada, CHOCH filter, MAX_GAP_PCT filter."""
     gaps = get_internal_gaps(df_h1, stype, bos_idx)
-    # Hanya FVG dengan volume kuat (C3 candle volume lebih besar dari rata-rata)
+    # Hanya FVG dengan volume kuat + C1/C3 fields valid
     gaps = [g for g in gaps
             if g.get('c3_vol', 0) > g.get('vol_avg20h', 0) > 0
-            and g.get('c3_open', 0) > 0]
+            and g.get('c3_open', 0) > 0
+            and g.get('c1_close', 0) > 0]
     # Filter FVG yang straddle CHOCH
     if choch_level:
         if stype == "Long":
@@ -750,21 +760,38 @@ def run_bot():
                             gap_size = float(fvg['top']) - float(fvg['bottom'])
                             if gap_size <= 0:
                                 continue
-                            ocl      = float(fvg.get('c3_open',
-                                       fvg['bottom'] if stype == 'Short' else fvg['top']))
-                            if ocl <= 0:
-                                continue
+
+                            # ── SBR MODE: trigger & entry di C1.close (demand/supply zone) ──
+                            # ── LEGACY MODE: trigger & entry di OCL = C3.open ────────────
+                            if SBR_MODE:
+                                c1_close = float(fvg.get('c1_close', 0))
+                                c1_low   = float(fvg.get('c1_low',   0))
+                                c1_high  = float(fvg.get('c1_high',  0))
+                                if c1_close <= 0:
+                                    continue
+                                trigger_lvl = c1_close   # entry juga di sini (market order)
+                                if stype == "Long":
+                                    sl_nat = c1_low - gap_size * 0.1
+                                else:
+                                    sl_nat = c1_high + gap_size * 0.1
+                            else:
+                                ocl = float(fvg.get('c3_open',
+                                            fvg['bottom'] if stype == 'Short' else fvg['top']))
+                                if ocl <= 0:
+                                    continue
+                                trigger_lvl = ocl
+                                sl_nat = (trigger_lvl - SL_MULT * gap_size if stype == "Long"
+                                          else trigger_lvl + SL_MULT * gap_size)
 
                             # Scan hanya 3 candle terakhir (15 menit) — entry di harga market
-                            # sekarang, jadi sentuhan lama tidak relevan (harga sudah pindah)
                             scan_start = max(len(df_m5_closed) - 3, 0)
                             for ki in range(len(df_m5_closed) - 1, scan_start - 1, -1):
                                 ck = df_m5_closed.iloc[ki]
 
                                 touched = False
-                                if stype == "Long"  and float(ck['low'])  <= ocl:
+                                if stype == "Long"  and float(ck['low'])  <= trigger_lvl:
                                     touched = True
-                                if stype == "Short" and float(ck['high']) >= ocl:
+                                if stype == "Short" and float(ck['high']) >= trigger_lvl:
                                     touched = True
                                 if not touched:
                                     continue
@@ -787,17 +814,18 @@ def run_bot():
                                     continue
 
                                 # Entry params
-                                entry_p = ocl
-                                dist    = SL_MULT * gap_size
-                                if stype == "Long":
-                                    sl_p = entry_p - dist
-                                else:
-                                    sl_p = entry_p + dist
+                                entry_p = trigger_lvl
+                                dist    = abs(entry_p - sl_nat)
+                                if dist < entry_p * 0.002:   # min 0.2% SL distance
+                                    continue
+                                sl_p    = sl_nat
                                 trail_d = TRAIL_STOP * dist
 
                                 side_order = "Buy" if stype == "Long" else "Sell"
-                                print(f"\n🎯 {coin}: OCL Touch! {stype} @ {entry_p:.6f} "
-                                      f"| SL:{sl_p:.6f} | Trail:{trail_d:.6f} "
+                                mode_tag = "SBR" if SBR_MODE else "OCL"
+                                print(f"\n🎯 {coin}: {mode_tag} Touch! {stype} @ {entry_p:.6f} "
+                                      f"| SL:{sl_p:.6f} dist:{dist/entry_p*100:.3f}% "
+                                      f"| Trail:{trail_d:.6f} "
                                       f"| GapPct:{gap_size/entry_p*100:.3f}% "
                                       f"| VolRatio:{tvol_ratio:.2f}×")
 
@@ -827,10 +855,15 @@ def run_bot():
                                 break
 
                         if not found:
-                            ocl_list = [f"{float(g.get('c3_open', 0)):.6g}"
-                                        for g in fvg_list if float(g.get('c3_open', 0)) > 0]
-                            ocl_str  = " / ".join(ocl_list) if ocl_list else "—"
-                            print(f"⏳ {coin}: Nunggu OCL touch @ {ocl_str} | "
+                            if SBR_MODE:
+                                lvl_list = [f"{float(g.get('c1_close', 0)):.6g}"
+                                            for g in fvg_list if float(g.get('c1_close', 0)) > 0]
+                            else:
+                                lvl_list = [f"{float(g.get('c3_open', 0)):.6g}"
+                                            for g in fvg_list if float(g.get('c3_open', 0)) > 0]
+                            lvl_str = " / ".join(lvl_list) if lvl_list else "—"
+                            mode_tag = "SBR" if SBR_MODE else "OCL"
+                            print(f"⏳ {coin}: Nunggu {mode_tag} touch @ {lvl_str} | "
                                   f"{len(fvg_list)} FVG | "
                                   f"Harga H1: {curr_h1['close']:.6g}")
                     continue

@@ -21,10 +21,10 @@ RISK_PCT        = 0.01      # 1% risk per trade
 LEVERAGE        = 10
 TAKER_FEE       = 0.00055   # 0.055% per side (Bybit USDT perp)
 MIN_RR          = 1.5   # 1:2 = 2.0, 1:3 = 3.0 — cukup untuk contrarian
-MIN_DIST_PCT    = 0.005     # minimum SL distance 0.5%
+MIN_DIST_PCT    = 0.002     # minimum SL distance 0.2% (fvg_sbr pakai C1 range, lebih kecil dari 0.5%)
 
 # ── Test variant config (override dari luar untuk testing) ──
-ENTRY_MODE   = 'bb_sl'  # 'bb_sl'|'bb_entry'|'fvg_touch'|'fvg_touch_rev'|'fvg_rev_limit'|'idm_touch'|'fvg_confirm'|'fvg_deep'|'fvg_dip'|'fvg_strong'
+ENTRY_MODE   = 'bb_sl'  # 'bb_sl'|'bb_entry'|'fvg_touch'|'fvg_touch_rev'|'fvg_rev_limit'|'idm_touch'|'fvg_confirm'|'fvg_deep'|'fvg_dip'|'fvg_strong'|'fvg_sbr'|'fvg_50pct'
 SL_MULT      = 6.2      # SL distance dari titik 0 (dalam R unit = FVG height)
 TP_MULT      = 2.0      # TP distance dari titik 0 (dalam R unit)
 ENTRY_R      = 8.0      # fvg_rev_limit: level limit entry dari titik 0 (dalam R)
@@ -242,17 +242,26 @@ def find_last_swing_bos(df):
 # ============================================================
 
 def _gap_vol_fields(df, c3_idx):
-    """Extract volume + OCL fields for candle 3 of an FVG (df in H1)."""
+    """Extract volume + OCL + C1 fields for an FVG (df in H1). C1=c3_idx-2."""
     has_vol  = 'vol' in df.columns
     c2_idx   = c3_idx - 1
+    c1_idx   = c3_idx - 2
     c2_close = float(df['close'].iloc[c2_idx]) if c2_idx >= 0 else 0.0
     c3_open  = float(df['open'].iloc[c3_idx])  if c3_idx < len(df) else 0.0
+    # C1 candle fields — dipakai untuk SBR entry (SL di C1.low/C1.high)
+    c1_open  = float(df['open'].iloc[c1_idx])  if c1_idx >= 0 else 0.0
+    c1_close = float(df['close'].iloc[c1_idx]) if c1_idx >= 0 else 0.0
+    c1_low   = float(df['low'].iloc[c1_idx])   if c1_idx >= 0 else 0.0
+    c1_high  = float(df['high'].iloc[c1_idx])  if c1_idx >= 0 else 0.0
+    base = {'c2_close': c2_close, 'c3_open': c3_open,
+            'c1_open': c1_open, 'c1_close': c1_close,
+            'c1_low': c1_low,   'c1_high': c1_high}
     if not has_vol:
-        return {'c3_vol': 0.0, 'vol_avg20h': 0.0, 'c2_close': c2_close, 'c3_open': c3_open}
+        return {**base, 'c3_vol': 0.0, 'vol_avg20h': 0.0}
     c3_vol    = float(df['vol'].iloc[c3_idx])
     avg_start = max(0, c3_idx - 20)
     vol_avg   = float(df['vol'].iloc[avg_start:c3_idx].mean()) if c3_idx > 0 else 0.0
-    return {'c3_vol': c3_vol, 'vol_avg20h': vol_avg, 'c2_close': c2_close, 'c3_open': c3_open}
+    return {**base, 'c3_vol': c3_vol, 'vol_avg20h': vol_avg}
 
 def get_internal_gaps(df, stype, bos_idx, lookback=60):
     gaps = []
@@ -940,6 +949,104 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
                 c_dir_fail += 1; i += 12; continue
 
         # ════════════════════════════════════════════════════════
+        # OPSI B5: fvg_sbr — SBR/RBS entry di C1.close (demand/supply zone)
+        # OCL touch = sinyal; entry limit di C1.close (lebih dalam dari OCL).
+        # SL di C1.low (Long) / C1.high (Short) + 10% buffer — natural structure SL.
+        # R:R = trail (dist = C1.close ↔ C1.low/high, lebih kecil dari 6.2×gap).
+        # ════════════════════════════════════════════════════════
+        elif ENTRY_MODE == 'fvg_sbr':
+            fvg_top  = float(used_fvg['top'])
+            fvg_bot  = float(used_fvg['bottom'])
+            gap_size = fvg_top - fvg_bot
+            c1_close = float(used_fvg.get('c1_close', fvg_bot))
+            c1_low   = float(used_fvg.get('c1_low',   fvg_bot - gap_size * 0.5))
+            c1_high  = float(used_fvg.get('c1_high',  fvg_top + gap_size * 0.5))
+            if gap_size <= 0 or c1_close <= 0:
+                c_dir_fail += 1; i += 12; continue
+
+            if stype == "Long":
+                entry_limit = c1_close                      # entry di top of C1 body
+                sl_nat      = c1_low - gap_size * 0.1      # SL di bawah C1 wick + 10% buffer
+                if entry_limit <= sl_nat:
+                    c_dir_fail += 1; i += 12; continue
+                d = entry_limit - sl_nat
+            else:
+                entry_limit = c1_close                      # entry di bottom of C1 body (bearish)
+                sl_nat      = c1_high + gap_size * 0.1     # SL di atas C1 wick + 10% buffer
+                if sl_nat <= entry_limit:
+                    c_dir_fail += 1; i += 12; continue
+                d = sl_nat - entry_limit
+
+            if d <= 0 or d < entry_limit * MIN_DIST_PCT:
+                c_dir_fail += 1; i += 12; continue
+
+            # Scan forward dari OCL touch — tunggu fill ke C1.close (max 48 jam)
+            fill_idx = None
+            scan_end = min(total - 1, found_fvg_idx + 576)
+            for k in range(found_fvg_idx, scan_end):
+                ck = df_m5_full.iloc[k]
+                if stype == "Long"  and float(ck['low'])  <= entry_limit: fill_idx = k; break
+                if stype == "Short" and float(ck['high']) >= entry_limit: fill_idx = k; break
+            if fill_idx is None:
+                c_dir_fail += 1; i += 12; continue
+
+            tp_nat = (entry_limit + 1000 * d) if stype == "Long" else (entry_limit - 1000 * d)
+            _entry_idx   = fill_idx; _entry_price = entry_limit
+            _sl_price    = sl_nat
+            _final_tp    = tp_nat
+            _dist        = d; _fvg_d = gap_size
+            _vol_ratio   = round(float(used_fvg.get('c3_vol',0)) /
+                                 max(float(used_fvg.get('vol_avg20h',1)), 1e-9), 4)
+            _atr_ratio   = round(gap_size / entry_limit, 6) if entry_limit > 0 else 0.0
+
+        # ════════════════════════════════════════════════════════
+        # OPSI B6: fvg_50pct — entry limit di 50% tengah FVG gap
+        # OCL touch = sinyal; entry limit di midpoint FVG.
+        # SL di fvg_bot (Long) / fvg_top (Short) - 10% buffer.
+        # dist = 0.6×gap  →  R:R jauh lebih baik dari OCL entry.
+        # ════════════════════════════════════════════════════════
+        elif ENTRY_MODE == 'fvg_50pct':
+            fvg_top  = float(used_fvg['top'])
+            fvg_bot  = float(used_fvg['bottom'])
+            gap_size = fvg_top - fvg_bot
+            if gap_size <= 0:
+                c_dir_fail += 1; i += 12; continue
+
+            mid      = (fvg_top + fvg_bot) / 2.0   # entry limit 50%
+            buf      = gap_size * 0.1               # 10% gap buffer
+
+            if stype == "Long":
+                entry_limit = mid
+                sl_nat      = fvg_bot - buf
+                d           = entry_limit - sl_nat   # = 0.5*gap + 0.1*gap = 0.6*gap
+            else:
+                entry_limit = mid
+                sl_nat      = fvg_top + buf
+                d           = sl_nat - entry_limit   # = 0.5*gap + 0.1*gap = 0.6*gap
+
+            if d <= 0 or d < entry_limit * MIN_DIST_PCT:
+                c_dir_fail += 1; i += 12; continue
+
+            # Scan forward dari OCL touch — tunggu fill ke midpoint (max 24 jam)
+            fill_idx = None
+            scan_end = min(total - 1, found_fvg_idx + 288)
+            for k in range(found_fvg_idx, scan_end):
+                ck = df_m5_full.iloc[k]
+                if stype == "Long"  and float(ck['low'])  <= entry_limit: fill_idx = k; break
+                if stype == "Short" and float(ck['high']) >= entry_limit: fill_idx = k; break
+            if fill_idx is None:
+                c_dir_fail += 1; i += 12; continue
+
+            tp_nat = (entry_limit + 1000 * d) if stype == "Long" else (entry_limit - 1000 * d)
+            _entry_idx   = fill_idx; _entry_price = entry_limit
+            _sl_price    = sl_nat
+            _final_tp    = tp_nat
+            _dist        = d; _fvg_d = gap_size
+            _vol_ratio   = round(float(used_fvg.get('c3_vol',0)) /
+                                 max(float(used_fvg.get('vol_avg20h',1)), 1e-9), 4)
+            _atr_ratio   = round(gap_size / entry_limit, 6) if entry_limit > 0 else 0.0
+
+        # ════════════════════════════════════════════════════════
         # OPSI B3: fvg_dip — tunggu harga DIP ke FVG edge dulu
         # sebelum +1R bounce. Entry limit di FVG bottom/top.
         # SL = entry - SL_MULT*sl_dist, TP = ep + TP_MULT*sl_dist
@@ -1252,7 +1359,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
         # Long → SL → Short (rev1) → SL → Long (rev2)
         # Kondisi: immediate SL (no float) ATAU trailing SL di BE+
         # ════════════════════════════════════════════════════════
-        if TRAIL_STOP > 0 and ENTRY_MODE == 'fvg_strong':
+        if TRAIL_STOP > 0 and ENTRY_MODE in ('fvg_strong', 'fvg_sbr', 'fvg_50pct'):
             _r_outcome  = outcome
             _r_extra    = _extra
             _r_exit_p   = exit_p
