@@ -219,15 +219,17 @@ def find_last_swing_bos(df):
     h_arr = df['high'].to_numpy(dtype=float)
     l_arr = df['low'].to_numpy(dtype=float)
     n = len(h_arr)
-    if n < 3:
+    if n < 5:
         return [], []
 
-    # Swing high: candle[i] lebih tinggi dari kiri dan kanan
-    sh_mask = (h_arr[1:-1] > h_arr[:-2]) & (h_arr[1:-1] > h_arr[2:])
-    sl_mask = (l_arr[1:-1] < l_arr[:-2]) & (l_arr[1:-1] < l_arr[2:])
+    # Swing high: candle[i] lebih tinggi dari 2 tetangga kiri dan 2 kanan (5-candle swing)
+    sh_mask = ((h_arr[2:-2] > h_arr[1:-3]) & (h_arr[2:-2] > h_arr[:-4]) &
+               (h_arr[2:-2] > h_arr[3:-1]) & (h_arr[2:-2] > h_arr[4:]))
+    sl_mask = ((l_arr[2:-2] < l_arr[1:-3]) & (l_arr[2:-2] < l_arr[:-4]) &
+               (l_arr[2:-2] < l_arr[3:-1]) & (l_arr[2:-2] < l_arr[4:]))
 
-    sh_idx = np.where(sh_mask)[0] + 1  # +1 karena slice [1:-1]
-    sl_idx = np.where(sl_mask)[0] + 1
+    sh_idx = np.where(sh_mask)[0] + 2  # +2 karena slice [2:-2]
+    sl_idx = np.where(sl_mask)[0] + 2
 
     ts_arr = df['ts'].to_numpy() if 'ts' in df.columns else np.zeros(n)
 
