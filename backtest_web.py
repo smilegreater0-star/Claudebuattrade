@@ -1,6 +1,6 @@
 """
 backtest_web.py — Backtest SEMUA coin bot live via Bybit API
-23 Coins | Jan 2025 – Apr 2026 | Modal $10 | Risk 1% compound | fvg_strong
+23 Coins | Jan 2025 – Apr 2026 | Modal $10 | Risk 1% compound | fvg_sbr
 
 Deploy ke Railway:
   Start command → python backtest_web.py
@@ -22,13 +22,14 @@ PORT             = int(os.environ.get('PORT', 8080))
 INITIAL_BALANCE  = 10.0   # modal awal $10
 
 # Entry mode — env var override atau default hardcode di sini
-_ENTRY_MODE    = os.environ.get('ENTRY_MODE',    'fvg_strong')
+_ENTRY_MODE    = os.environ.get('ENTRY_MODE',    'fvg_sbr')
 _SL_MULT       = float(os.environ.get('SL_MULT',       '6.2'))
 _TP_MULT       = float(os.environ.get('TP_MULT',       '18.6'))
 _ENTRY_R       = float(os.environ.get('ENTRY_R',       '9.5'))
-_TOUCH_VOL_MIN = float(os.environ.get('TOUCH_VOL_MIN', '0.8'))    # min vol ratio at OCL touch
+_TOUCH_VOL_MIN = float(os.environ.get('TOUCH_VOL_MIN', '0.8'))    # min vol ratio at SBR/OCL touch
 _MAX_GAP_PCT   = float(os.environ.get('MAX_GAP_PCT',   '0.006'))  # max gap_size/price — FVG ≤0.60% dari harga
-_TRAIL_STOP    = float(os.environ.get('TRAIL_STOP',    '2.0'))    # trail 12.4R, BE di +12.4R dari entry
+_TRAIL_STOP    = float(os.environ.get('TRAIL_STOP',    '0.15'))   # trail 0.15×dist (tight), reverse 2×
+_MIN_DIST_PCT  = float(os.environ.get('MIN_DIST_PCT',  '0.002'))  # min SL distance = 0.2% dari price
 bt.ENTRY_MODE    = _ENTRY_MODE
 bt.SL_MULT       = _SL_MULT
 bt.TP_MULT       = _TP_MULT
@@ -36,6 +37,7 @@ bt.ENTRY_R       = _ENTRY_R
 bt.TOUCH_VOL_MIN = _TOUCH_VOL_MIN
 bt.MAX_GAP_PCT   = _MAX_GAP_PCT
 bt.TRAIL_STOP    = _TRAIL_STOP
+bt.MIN_DIST_PCT  = _MIN_DIST_PCT
 
 COINS = [
     # Sama persis dengan SYMBOLS di bott_v4.py (23 coin aktif)
@@ -396,10 +398,10 @@ def _insight(ws, ls) -> str:
     vd = ws['avg_vol'] - ls['avg_vol']
     if   vd >  0.3: clues.append(f'Vol C3 lebih kuat saat win ({ws["avg_vol"]:.1f}× vs {ls["avg_vol"]:.1f}×)')
     elif vd < -0.3: clues.append(f'Vol C3 justru lebih lemah saat win ({ws["avg_vol"]:.1f}× vs {ls["avg_vol"]:.1f}×)')
-    # Touch candle volume (M5 saat harga menyentuh OCL)
+    # Touch candle volume (M5 saat harga menyentuh SBR/OCL)
     tvd = ws['avg_tvol'] - ls['avg_tvol']
-    if   tvd >  0.3: clues.append(f'Vol sentuh OCL lebih besar saat win ({ws["avg_tvol"]:.1f}× vs {ls["avg_tvol"]:.1f}×)')
-    elif tvd < -0.3: clues.append(f'Vol sentuh OCL lebih kecil saat win ({ws["avg_tvol"]:.1f}× vs {ls["avg_tvol"]:.1f}×)')
+    if   tvd >  0.3: clues.append(f'Vol sentuh SBR lebih besar saat win ({ws["avg_tvol"]:.1f}× vs {ls["avg_tvol"]:.1f}×)')
+    elif tvd < -0.3: clues.append(f'Vol sentuh SBR lebih kecil saat win ({ws["avg_tvol"]:.1f}× vs {ls["avg_tvol"]:.1f}×)')
     # FVG gap size
     gd = ws['avg_gap'] - ls['avg_gap']
     if   gd >  0.05: clues.append(f'FVG lebih besar saat win ({ws["avg_gap"]:.2f}% vs {ls["avg_gap"]:.2f}%)')
@@ -760,8 +762,8 @@ BOS H1 → EMA50 Filter → FVG Touch → IDM M5 → BOS/Sweep M5 → MSS → En
 | Leverage | maks 10× |
 | Fee | 0.055%/sisi (Bybit taker) |
 | ATR Filter | P25 per coin |
-| Min RR | 2.8 |
-| Min SL distance | 0.5% |
+| Entry | SBR (C1.close) |
+| Min SL distance | 0.2% |
 
 ---
 
@@ -1013,13 +1015,13 @@ def _render_html() -> bytes:
 <html lang="id">
 <head>
   <meta charset="utf-8">
-  <title>Backtest {len(COINS)} Coins — SMC Bot fvg_strong</title>
+  <title>Backtest {len(COINS)} Coins — SMC Bot {_ENTRY_MODE}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   {_CSS}
   {refresh}
 </head>
 <body>
-  <h1>🤖 Backtest SMC Bot — {len(COINS)} Coins (fvg_strong)</h1>
+  <h1>🤖 Backtest SMC Bot — {len(COINS)} Coins ({_ENTRY_MODE})</h1>
   <p>
     <b>{n_done}/{n_total} coin selesai</b> &nbsp;|&nbsp;
     Modal: <b>${INITIAL_BALANCE:.0f}</b> &nbsp;|&nbsp;
