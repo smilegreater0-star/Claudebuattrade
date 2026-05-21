@@ -97,28 +97,31 @@ UPLOAD_DIR = "/mnt/user-data/uploads"
 # ATR filter threshold per coin (P25 ATR historis dari backtest)
 # backtest_web.py override dict ini dengan nilai live saat runtime
 ATR_THRESHOLD = {
-    'XVGUSDT'       : 0.0030,   # P25=0.303%
-    '1000PEPEUSDT'  : 0.0031,   # P25=0.306%
-    '1000BONKUSDT'  : 0.0035,   # P25=0.348%
-    'BELUSDT'       : 0.0024,   # P25=0.238%
-    'USUALUSDT'     : 0.0034,   # P25=0.340%
-    'BERAUSDT'      : 0.0032,   # P25=0.322%
-    'WIFUSDT'       : 0.0038,   # P25=0.378%
-    'PENGUUSDT'     : 0.0040,   # P25=0.397%
-    'PNUTUSDT'      : 0.0036,   # P25=0.357%
-    'AVAXUSDT'      : 0.0025,   # P25=0.251%
-    'ONDOUSDT'      : 0.0027,   # P25=0.270%
-    'EIGENUSDT'     : 0.0037,   # P25=0.369%
-    'LINKUSDT'      : 0.0025,   # P25=0.253%
-    'VIRTUALUSDT'   : 0.0040,   # P25=0.402%
-    'ORCAUSDT'      : 0.0024,   # P25=0.237%
-    'DOGEUSDT'      : 0.0024,   # P25=0.242%
-    'ARBUSDT'       : 0.0028,   # P25=0.279%
-    'NEARUSDT'      : 0.0029,   # P25=0.287%
-    'STORJUSDT'     : 0.0017,   # P25=0.172%
-    'ENAUSDT'       : 0.0039,   # P25=0.388%
-    'ADAUSDT'       : 0.0025,   # P25=0.247%
-    'SHIB1000USDT'  : 0.0020,   # P25=0.197%
+    # ATR P25 dari backtest fvg_sbr Jan2025–Apr2026
+    'XVGUSDT'       : 0.0028,   # P25=0.283%
+    'BELUSDT'       : 0.0021,   # P25=0.214%
+    '1000BONKUSDT'  : 0.0031,   # P25=0.308%
+    'BERAUSDT'      : 0.0031,   # P25=0.305%
+    '1000PEPEUSDT'  : 0.0029,   # P25=0.292%
+    'PNUTUSDT'      : 0.0032,   # P25=0.316%
+    'ONDOUSDT'      : 0.0025,   # P25=0.254%
+    'EIGENUSDT'     : 0.0033,   # P25=0.331%
+    'VIRTUALUSDT'   : 0.0036,   # P25=0.363%
+    'ENAUSDT'       : 0.0035,   # P25=0.348%
+    'SHIB1000USDT'  : 0.0019,   # P25=0.188%
+    'JUPUSDT'       : 0.0028,   # P25=0.278%
+    'DOTUSDT'       : 0.0023,   # P25=0.226%
+    'SEIUSDT'       : 0.0025,   # P25=0.250%
+    'OPUSDT'        : 0.0028,   # P25=0.277%
+    'RUNEUSDT'      : 0.0020,   # P25=0.198%
+    'STXUSDT'       : 0.0023,   # P25=0.229%
+    'APEUSDT'       : 0.0024,   # P25=0.241%
+    'ALGOUSDT'      : 0.0023,   # P25=0.228%
+    'ORCAUSDT'      : 0.0021,   # P25=0.214%
+    'XRPUSDT'       : 0.0018,   # P25=0.185%
+    'XAUTUSDT'      : 0.0003,   # P25=0.027%
+    'FARTCOINUSDT'  : 0.0050,   # P25=0.503%
+    'TAOUSDT'       : 0.0031,   # P25=0.313%
 }
 
 def _parse_one_file(path):

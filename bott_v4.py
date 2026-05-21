@@ -93,31 +93,31 @@ SYMBOLS = [
 ]
 
 ATR_THRESHOLD = {
-    # ATR P25 dari backtest full year 2025 (fvg_strong)
-    'XVGUSDT'       : 0.0030,
-    'BELUSDT'       : 0.0024,
-    '1000BONKUSDT'  : 0.0035,
-    'BERAUSDT'      : 0.0032,
-    '1000PEPEUSDT'  : 0.0031,
-    'PNUTUSDT'      : 0.0036,
-    'ONDOUSDT'      : 0.0027,
-    'EIGENUSDT'     : 0.0037,
-    'VIRTUALUSDT'   : 0.0040,
-    'ENAUSDT'       : 0.0039,
-    'SHIB1000USDT'  : 0.0020,
-    'JUPUSDT'       : 0.0030,
-    'DOTUSDT'       : 0.0023,
-    'SEIUSDT'       : 0.0028,
-    'OPUSDT'        : 0.0029,
-    'RUNEUSDT'      : 0.0022,
-    'STXUSDT'       : 0.0025,
-    'APEUSDT'       : 0.0024,
-    'ALGOUSDT'      : 0.0024,
-    'ORCAUSDT'      : 0.0024,   # P25=0.237%
-    'XRPUSDT'       : 0.0020,   # estimasi — update setelah backtest
-    'XAUTUSDT'      : 0.0008,   # estimasi — update setelah backtest
-    'FARTCOINUSDT'  : 0.0040,   # estimasi — update setelah backtest
-    'TAOUSDT'       : 0.0025,   # estimasi — update setelah backtest
+    # ATR P25 dari backtest fvg_sbr Jan2025–Apr2026
+    'XVGUSDT'       : 0.0028,   # P25=0.283%
+    'BELUSDT'       : 0.0021,   # P25=0.214%
+    '1000BONKUSDT'  : 0.0031,   # P25=0.308%
+    'BERAUSDT'      : 0.0031,   # P25=0.305%
+    '1000PEPEUSDT'  : 0.0029,   # P25=0.292%
+    'PNUTUSDT'      : 0.0032,   # P25=0.316%
+    'ONDOUSDT'      : 0.0025,   # P25=0.254%
+    'EIGENUSDT'     : 0.0033,   # P25=0.331%
+    'VIRTUALUSDT'   : 0.0036,   # P25=0.363%
+    'ENAUSDT'       : 0.0035,   # P25=0.348%
+    'SHIB1000USDT'  : 0.0019,   # P25=0.188%
+    'JUPUSDT'       : 0.0028,   # P25=0.278%
+    'DOTUSDT'       : 0.0023,   # P25=0.226%
+    'SEIUSDT'       : 0.0025,   # P25=0.250%
+    'OPUSDT'        : 0.0028,   # P25=0.277%
+    'RUNEUSDT'      : 0.0020,   # P25=0.198%
+    'STXUSDT'       : 0.0023,   # P25=0.229%
+    'APEUSDT'       : 0.0024,   # P25=0.241%
+    'ALGOUSDT'      : 0.0023,   # P25=0.228%
+    'ORCAUSDT'      : 0.0021,   # P25=0.214%
+    'XRPUSDT'       : 0.0018,   # P25=0.185%
+    'XAUTUSDT'      : 0.0003,   # P25=0.027%
+    'FARTCOINUSDT'  : 0.0050,   # P25=0.503%
+    'TAOUSDT'       : 0.0031,   # P25=0.313%
 }
 
 pending          = {}
