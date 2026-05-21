@@ -643,7 +643,9 @@ def replay_h1(coin, df_h1):
         sbr_lvl  = g.get('c1_close', 0)
         gap_size = g['top'] - g['bottom']
         ref_p    = ocl if ocl > 0 else (g['bottom'] if stype == 'Short' else g['top'])
-        mode_lbl = f"SBR:{sbr_lvl:.6g}" if SBR_MODE and sbr_lvl > 0 else f"OCL:{ocl:.6g}"
+        lbl      = ("RBS" if stype == "Long" else "SBR") if SBR_MODE else "OCL"
+        entry_v  = sbr_lvl if SBR_MODE and sbr_lvl > 0 else ocl
+        mode_lbl = f"{lbl}:{entry_v:.6g}"
         print(f"   FVG {gi+1}: bot:{g['bottom']:.6g} top:{g['top']:.6g} "
               f"{mode_lbl} gap:{abs(gap_size)/ref_p*100:.3f}%" if ref_p > 0 else
               f"   FVG {gi+1}: bot:{g['bottom']:.6g} top:{g['top']:.6g} {mode_lbl}")
@@ -826,7 +828,7 @@ def run_bot():
                                 trail_d = TRAIL_STOP * dist
 
                                 side_order = "Buy" if stype == "Long" else "Sell"
-                                mode_tag = "SBR" if SBR_MODE else "OCL"
+                                mode_tag = ("RBS" if stype == "Long" else "SBR") if SBR_MODE else "OCL"
                                 print(f"\n🎯 {coin}: {mode_tag} Touch! {stype} @ {entry_p:.6f} "
                                       f"| SL:{sl_p:.6f} dist:{dist/entry_p*100:.3f}% "
                                       f"| Trail:{trail_d:.6f} "
@@ -866,9 +868,9 @@ def run_bot():
                                 lvl_list = [f"{float(g.get('c3_open', 0)):.6g}"
                                             for g in fvg_list if float(g.get('c3_open', 0)) > 0]
                             lvl_str = " / ".join(lvl_list) if lvl_list else "—"
-                            mode_tag = "SBR" if SBR_MODE else "OCL"
+                            mode_tag = ("RBS" if stype == "Long" else "SBR") if SBR_MODE else "OCL"
                             print(f"⏳ {coin}: Nunggu {mode_tag} touch @ {lvl_str} | "
-                                  f"{len(fvg_list)} FVG | "
+                                  f"{len(fvg_list)} FVG | {stype} | "
                                   f"Harga H1: {curr_h1['close']:.6g}")
                     continue
 
@@ -932,7 +934,9 @@ def run_bot():
                     sbr_lvl  = g.get('c1_close', 0)
                     gap_size = g['top'] - g['bottom']
                     ref_p    = ocl if ocl > 0 else (g['bottom'] if stype == 'Short' else g['top'])
-                    mode_lbl = f"SBR:{sbr_lvl:.6g}" if SBR_MODE and sbr_lvl > 0 else f"OCL:{ocl:.6g}"
+                    lbl      = ("RBS" if stype == "Long" else "SBR") if SBR_MODE else "OCL"
+                    entry_v  = sbr_lvl if SBR_MODE and sbr_lvl > 0 else ocl
+                    mode_lbl = f"{lbl}:{entry_v:.6g}"
                     print(f"   FVG {i+1}: bot:{g['bottom']:.6g} top:{g['top']:.6g} "
                           f"{mode_lbl} gap:{abs(gap_size)/ref_p*100:.3f}%" if ref_p > 0 else
                           f"   FVG {i+1}: bot:{g['bottom']:.6g} top:{g['top']:.6g} {mode_lbl}")
