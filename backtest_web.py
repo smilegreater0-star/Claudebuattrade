@@ -47,7 +47,7 @@ COINS = [
     'ENAUSDT', 'SHIB1000USDT',
     'JUPUSDT', 'DOTUSDT', 'SEIUSDT', 'OPUSDT', 'RUNEUSDT',
     'STXUSDT', 'APEUSDT', 'LDOUSDT', 'ALGOUSDT',
-    # TODO: tambah coin baru yang belum pernah ditest dengan fvg_sbr
+    'ORCAUSDT', 'XRPUSDT', 'XAUTUSDT', 'FARTCOINUSDT', 'TAOUSDT', 'APTUSDT',
 ]
 
 # 2025-01-01 00:00:00 UTC  →  2026-04-30 23:59:59 UTC  (dalam ms)
