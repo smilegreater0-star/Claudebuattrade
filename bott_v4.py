@@ -639,10 +639,14 @@ def replay_h1(coin, df_h1):
     print(f"\n📊 {coin}: BOS {stype} | Swing: {swing_val:.6g} | {len(gaps)} FVG kuat")
     print(f"   ⛔ CHOCH batal: {choch_str}")
     for gi, g in enumerate(gaps):
-        ocl = g.get('c3_open', 0)
+        ocl      = g.get('c3_open', 0)
+        sbr_lvl  = g.get('c1_close', 0)
         gap_size = g['top'] - g['bottom']
+        ref_p    = ocl if ocl > 0 else (g['bottom'] if stype == 'Short' else g['top'])
+        mode_lbl = f"SBR:{sbr_lvl:.6g}" if SBR_MODE and sbr_lvl > 0 else f"OCL:{ocl:.6g}"
         print(f"   FVG {gi+1}: bot:{g['bottom']:.6g} top:{g['top']:.6g} "
-              f"OCL:{ocl:.6g} gap:{gap_size/ocl*100:.3f}%")
+              f"{mode_lbl} gap:{abs(gap_size)/ref_p*100:.3f}%" if ref_p > 0 else
+              f"   FVG {gi+1}: bot:{g['bottom']:.6g} top:{g['top']:.6g} {mode_lbl}")
     return state
 
 
@@ -925,9 +929,13 @@ def run_bot():
                 print(f"   {len(gaps)} FVG kuat tersedia:")
                 for i, g in enumerate(gaps):
                     ocl      = g.get('c3_open', 0)
+                    sbr_lvl  = g.get('c1_close', 0)
                     gap_size = g['top'] - g['bottom']
+                    ref_p    = ocl if ocl > 0 else (g['bottom'] if stype == 'Short' else g['top'])
+                    mode_lbl = f"SBR:{sbr_lvl:.6g}" if SBR_MODE and sbr_lvl > 0 else f"OCL:{ocl:.6g}"
                     print(f"   FVG {i+1}: bot:{g['bottom']:.6g} top:{g['top']:.6g} "
-                          f"OCL:{ocl:.6g} gap:{gap_size/ocl*100:.3f}%")
+                          f"{mode_lbl} gap:{abs(gap_size)/ref_p*100:.3f}%" if ref_p > 0 else
+                          f"   FVG {i+1}: bot:{g['bottom']:.6g} top:{g['top']:.6g} {mode_lbl}")
 
             except Exception as e:
                 print(f"⚠️ Error {coin}: {e}"); continue
