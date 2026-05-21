@@ -82,17 +82,13 @@ TOUCH_VOL_MIN = 0.8     # touch candle volume min (× avg 20 M5 candle)
 MAX_GAP_PCT   = 0.006   # max gap_size / entry_price (FVG ≤ 0.60%)
 
 SYMBOLS = [
-    # ── Lolos backtest fvg_strong full year 2025 (compound positif) ──────
-    # Original bot (dipertahankan)
+    # ── Lolos backtest fvg_sbr (compound positif, sinkron dengan backtest_web.py) ──
     'XVGUSDT', 'BELUSDT', '1000BONKUSDT', 'BERAUSDT',
     '1000PEPEUSDT', 'PNUTUSDT',
     'ONDOUSDT', 'EIGENUSDT', 'VIRTUALUSDT',
-    'ARBUSDT', 'ENAUSDT', 'SHIB1000USDT',
-    # Rehabilitasi (bagus di fvg_strong)
-    '1000FLOKIUSDT',
-    # Baru dari screening batch 3 & 4
+    'ENAUSDT', 'SHIB1000USDT',
     'JUPUSDT', 'DOTUSDT', 'SEIUSDT', 'OPUSDT', 'RUNEUSDT',
-    'STXUSDT', 'ATOMUSDT', 'APEUSDT', 'LDOUSDT', 'ALGOUSDT',
+    'STXUSDT', 'APEUSDT', 'ALGOUSDT',
 ]
 
 ATR_THRESHOLD = {
@@ -106,19 +102,15 @@ ATR_THRESHOLD = {
     'ONDOUSDT'      : 0.0027,
     'EIGENUSDT'     : 0.0037,
     'VIRTUALUSDT'   : 0.0040,
-    'ARBUSDT'       : 0.0028,
     'ENAUSDT'       : 0.0039,
     'SHIB1000USDT'  : 0.0020,
-    '1000FLOKIUSDT' : 0.0030,
     'JUPUSDT'       : 0.0030,
     'DOTUSDT'       : 0.0023,
     'SEIUSDT'       : 0.0028,
     'OPUSDT'        : 0.0029,
     'RUNEUSDT'      : 0.0022,
     'STXUSDT'       : 0.0025,
-    'ATOMUSDT'      : 0.0021,
     'APEUSDT'       : 0.0024,
-    'LDOUSDT'       : 0.0031,
     'ALGOUSDT'      : 0.0024,
 }
 
