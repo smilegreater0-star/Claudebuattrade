@@ -78,28 +78,25 @@ session = HTTP(testnet=TESTNET, api_key=API_KEY, api_secret=API_SECRET)
 SL_MULT       = 6.2     # SL = SL_MULT × gap_size dari entry (fallback)
 TRAIL_STOP    = 0.15    # trailing distance = TRAIL_STOP × dist (tight trail = capture besar)
 SBR_MODE      = True    # True = SBR entry di C1.close + SL di C1.low, False = OCL entry lama
-TOUCH_VOL_MIN = 0.8     # touch candle volume min (× avg 20 M5 candle)
+ENTRY_MODE    = 'fvg_limit'  # 'fvg_sbr' (market saat touch) | 'fvg_limit' (limit langsung di BOS)
+TOUCH_VOL_MIN = 0.8     # touch candle volume min (× avg 20 M5 candle) — hanya dipakai fvg_sbr
 MAX_GAP_PCT   = 0.006   # max gap_size / entry_price (FVG ≤ 0.60%)
 
 SYMBOLS = [
-    # ── Lolos backtest fvg_sbr (compound positif, sinkron dengan backtest_web.py) ──
-    # Batch 1 (21 coin)
+    # Batch 1 (17 coin — removed: JUP, SEI, APE, XAUT)
     'XVGUSDT', 'BELUSDT', '1000BONKUSDT', 'BERAUSDT',
     '1000PEPEUSDT',
     'ONDOUSDT', 'EIGENUSDT', 'VIRTUALUSDT',
     'ENAUSDT', 'SHIB1000USDT',
-    'JUPUSDT', 'SEIUSDT', 'OPUSDT',
-    'STXUSDT', 'APEUSDT', 'ALGOUSDT',
-    'ORCAUSDT', 'XRPUSDT', 'XAUTUSDT', 'FARTCOINUSDT', 'TAOUSDT',
-    # Batch 2 lolos filter (14 coin)
-    'SOLUSDT', 'SUIUSDT', 'TIAUSDT',
-    'AAVEUSDT', 'GALAUSDT', 'IMXUSDT', 'GMXUSDT',
-    'HBARUSDT', 'SANDUSDT', 'AXSUSDT',
-    'LTCUSDT', 'DYDXUSDT', 'FLOWUSDT', 'ICPUSDT',
+    'OPUSDT', 'STXUSDT', 'ALGOUSDT',
+    'ORCAUSDT', 'XRPUSDT', 'FARTCOINUSDT', 'TAOUSDT',
+    # Batch 2 (7 coin — removed: TIA, AAVE, GALA, GMX, HBAR, AXS, DYDX)
+    'SOLUSDT', 'SUIUSDT', 'IMXUSDT',
+    'SANDUSDT', 'LTCUSDT', 'FLOWUSDT', 'ICPUSDT',
 ]
 
 ATR_THRESHOLD = {
-    # ATR P25 dari backtest fvg_sbr Jan2025–Apr2026
+    # ATR P25 dari backtest Jan2025–Apr2026
     'XVGUSDT'       : 0.0028,   # P25=0.283%
     'BELUSDT'       : 0.0021,   # P25=0.214%
     '1000BONKUSDT'  : 0.0031,   # P25=0.308%
@@ -110,29 +107,18 @@ ATR_THRESHOLD = {
     'VIRTUALUSDT'   : 0.0036,   # P25=0.363%
     'ENAUSDT'       : 0.0035,   # P25=0.348%
     'SHIB1000USDT'  : 0.0019,   # P25=0.188%
-    'JUPUSDT'       : 0.0028,   # P25=0.278%
-    'SEIUSDT'       : 0.0025,   # P25=0.250%
     'OPUSDT'        : 0.0028,   # P25=0.277%
     'STXUSDT'       : 0.0023,   # P25=0.229%
-    'APEUSDT'       : 0.0024,   # P25=0.241%
     'ALGOUSDT'      : 0.0023,   # P25=0.228%
     'ORCAUSDT'      : 0.0021,   # P25=0.214%
     'XRPUSDT'       : 0.0018,   # P25=0.185%
-    'XAUTUSDT'      : 0.0003,   # P25=0.027%
     'FARTCOINUSDT'  : 0.0050,   # P25=0.503%
     'TAOUSDT'       : 0.0031,   # P25=0.313%
     'SOLUSDT'       : 0.0022,   # P25=0.217%
     'SUIUSDT'       : 0.0026,   # P25=0.263%
-    'TIAUSDT'       : 0.0030,   # P25=0.298%
-    'AAVEUSDT'      : 0.0026,   # P25=0.259%
-    'GALAUSDT'      : 0.0028,   # P25=0.278%
     'IMXUSDT'       : 0.0028,   # P25=0.276%
-    'GMXUSDT'       : 0.0020,   # P25=0.203%
-    'HBARUSDT'      : 0.0022,   # P25=0.217%
     'SANDUSDT'      : 0.0022,   # P25=0.220%
-    'AXSUSDT'       : 0.0023,   # P25=0.231%
     'LTCUSDT'       : 0.0018,   # P25=0.178%
-    'DYDXUSDT'      : 0.0026,   # P25=0.264%
     'FLOWUSDT'      : 0.0020,   # P25=0.200%
     'ICPUSDT'       : 0.0023,   # P25=0.231%
 }
@@ -422,6 +408,75 @@ def place_market_order(symbol, side, entry, sl, trail_dist):
         return None
 
 
+def place_limit_order(symbol, side, entry_p, sl_p):
+    """
+    Limit order GTC di entry_p, SL di sl_p.
+    Trail dipasang setelah fill terdeteksi via WAIT_FILL loop.
+    """
+    try:
+        info     = get_instrument_info(symbol)
+        res_bal  = session.get_wallet_balance(accountType="UNIFIED", coin="USDT")
+        balance  = float(res_bal['result']['list'][0]['totalEquity'])
+        risk_usd = balance * 0.01
+        dist     = abs(entry_p - sl_p)
+        if dist == 0:
+            print(f"⚠️ {symbol}: dist entry-SL = 0, skip.")
+            return None
+
+        min_dist = entry_p * 0.002
+        if dist < min_dist:
+            dist  = min_dist
+            sl_p  = entry_p - dist if side == "Buy" else entry_p + dist
+
+        raw_qty = risk_usd / dist
+        qty     = round_qty(raw_qty, info['qty_step'])
+        if qty < info['min_qty']:
+            print(f"⚠️ {symbol}: Qty {qty} < minOrderQty {info['min_qty']}, skip.")
+            return None
+
+        entry_r = round_price(entry_p, info['tick_size'])
+        sl_r    = round_price(sl_p,    info['tick_size'])
+
+        try:
+            max_lev = float(info.get('max_leverage', 10))
+            lev     = str(int(min(10, max_lev)))
+            session.set_leverage(category=CATEGORY, symbol=symbol,
+                                 buyLeverage=lev, sellLeverage=lev)
+        except Exception:
+            pass
+
+        print(f"   Balance:{balance:.2f} Risk:{risk_usd:.2f} Dist:{dist:.6f} "
+              f"Qty:{qty} LimitEntry:{entry_r} SL:{sl_r}")
+
+        res = session.place_order(
+            category=CATEGORY, symbol=symbol, side=side,
+            orderType="Limit", qty=str(qty),
+            price=str(entry_r),
+            stopLoss=str(sl_r),
+            positionIdx=0,
+            timeInForce="GTC"
+        )
+        if res['retCode'] == 0:
+            return res['result']['orderId']
+        print(f"⚠️ {symbol}: Limit order ditolak → {res.get('retMsg','')} (code:{res['retCode']})")
+        return None
+    except Exception as e:
+        print(f"⚠️ {symbol}: place_limit_order error → {e}")
+        return None
+
+
+def cancel_order(symbol, order_id):
+    """Batalkan pending order di Bybit."""
+    try:
+        res = session.cancel_order(category=CATEGORY, symbol=symbol, orderId=order_id)
+        if res['retCode'] == 0:
+            print(f"   ✅ {symbol}: Order {order_id[:8]}… dibatalkan.")
+        else:
+            print(f"   ⚠️ {symbol}: Cancel gagal → {res.get('retMsg','')} (code:{res['retCode']})")
+    except Exception as e:
+        print(f"   ⚠️ {symbol}: cancel_order error → {e}")
+
+
 def get_open_position(symbol):
     try:
         res = session.get_positions(category=CATEGORY, symbol=symbol)
@@ -698,7 +753,8 @@ def run_bot():
     if not test_connection():
         print("⛔ Tidak bisa konek ke Bybit.")
         return
-    reconstruct_state()
+    if ENTRY_MODE != 'fvg_limit':
+        reconstruct_state()
 
     while True:
         now      = time.time()
@@ -746,9 +802,13 @@ def run_bot():
                     choch_level = setup.get('choch_level')
                     if choch_level:
                         if stype == "Long"  and curr_h1['close'] < choch_level:
+                            if setup.get('order_id'):
+                                cancel_order(coin, setup['order_id'])
                             print(f"🔄 {coin}: CHOCH — swing low {choch_level:.6f} ditembus. Setup batal.")
                             del pending[coin]; continue
                         if stype == "Short" and curr_h1['close'] > choch_level:
+                            if setup.get('order_id'):
+                                cancel_order(coin, setup['order_id'])
                             print(f"🔄 {coin}: CHOCH — swing high {choch_level:.6f} ditembus. Setup batal.")
                             del pending[coin]; continue
 
@@ -768,8 +828,55 @@ def run_bot():
 
                     fvg_list = pending[coin]['fvg_list']
                     if not fvg_list:
+                        if setup.get('order_id'):
+                            cancel_order(coin, setup['order_id'])
                         print(f"🗑️ {coin}: Tidak ada FVG kuat tersisa.")
                         del pending[coin]; continue
+
+                    # ── WAIT_FILL: limit order placed, nunggu fill ──────
+                    if setup['phase'] == 'WAIT_FILL':
+                        pos = get_open_position(coin)
+                        if pos:
+                            entry_p    = setup['entry']
+                            sl_p       = setup['sl']
+                            dist       = setup['dist']
+                            side_order = "Buy" if stype == "Long" else "Sell"
+                            trail_d    = TRAIL_STOP * dist
+                            info       = get_instrument_info(coin)
+                            tick       = info.get('tick_size', 0.0001)
+                            trail_r    = round_price(trail_d, tick)
+                            active_p   = round_price(
+                                entry_p + dist if side_order == "Buy" else entry_p - dist, tick)
+                            if trail_r > 0 and active_p > 0:
+                                try:
+                                    session.set_trading_stop(
+                                        category=CATEGORY, symbol=coin,
+                                        trailingStop=str(trail_r),
+                                        activePrice=str(active_p),
+                                        positionIdx=0
+                                    )
+                                except Exception:
+                                    pass
+                            actual_entry = float(pos.get('avgPrice', entry_p))
+                            active_positions[coin] = {
+                                'side'          : side_order,
+                                'entry'         : actual_entry,
+                                'sl'            : sl_p,
+                                'dist'          : dist,
+                                'trail_dist'    : trail_d,
+                                'trail_engaged' : False,
+                                'trail_set'     : True,
+                                'last_price'    : actual_entry,
+                                'rev_count'     : 0,
+                                'entry_time'    : time.time(),
+                            }
+                            del pending[coin]
+                            print(f"✅ {coin}: Limit filled! Entry:{actual_entry:.6f} "
+                                  f"SL:{sl_p:.6f} Trail aktif setelah +1R")
+                        else:
+                            print(f"⏳ {coin}: Nunggu fill limit @ {setup['entry']:.6f} | "
+                                  f"SL:{setup['sl']:.6f} | {stype} | H1:{curr_h1['close']:.6g}")
+                        continue
 
                     # ── WAIT_FVG_TOUCH: scan M5 untuk OCL touch ──────
                     if setup['phase'] == 'WAIT_FVG_TOUCH':
@@ -934,32 +1041,85 @@ def run_bot():
                 if existing and existing.get('swing_val') == swing_val and existing.get('type') == stype:
                     continue
 
-                bos_ts = df_h1_snap['ts'].iloc[bos_idx]
-                pending[coin] = {
-                    'type'        : stype,
-                    'phase'       : 'WAIT_FVG_TOUCH',
-                    'fvg_list'    : gaps,
-                    'fvg_idx'     : 0,
-                    'bos_ts'      : bos_ts,
-                    'bos_idx'     : bos_idx,
-                    'swing_val'   : swing_val,
-                    'choch_level' : choch_level,
-                }
+                # Overwrite BOS berbeda: batalkan limit order lama jika ada
+                if existing and existing.get('order_id'):
+                    cancel_order(coin, existing['order_id'])
+
+                bos_ts    = df_h1_snap['ts'].iloc[bos_idx]
                 choch_str = f"{choch_level:.6g}" if choch_level else "—"
-                print(f"\n📊 {coin} | BOS {stype} | Swing: {swing_val:.6g} | C: {curr_h1['close']:.6g}")
-                print(f"   ⛔ CHOCH batal: {choch_str}")
-                print(f"   {len(gaps)} FVG kuat tersedia:")
-                for i, g in enumerate(gaps):
-                    ocl      = g.get('c3_open', 0)
-                    sbr_lvl  = g.get('c1_close', 0)
-                    gap_size = g['top'] - g['bottom']
-                    ref_p    = ocl if ocl > 0 else (g['bottom'] if stype == 'Short' else g['top'])
-                    lbl      = ("RBS" if stype == "Long" else "SBR") if SBR_MODE else "OCL"
-                    entry_v  = sbr_lvl if SBR_MODE and sbr_lvl > 0 else ocl
-                    mode_lbl = f"{lbl}:{entry_v:.6g}"
-                    print(f"   FVG {i+1}: bot:{g['bottom']:.6g} top:{g['top']:.6g} "
-                          f"{mode_lbl} gap:{abs(gap_size)/ref_p*100:.3f}%" if ref_p > 0 else
-                          f"   FVG {i+1}: bot:{g['bottom']:.6g} top:{g['top']:.6g} {mode_lbl}")
+
+                if ENTRY_MODE == 'fvg_limit':
+                    # Ambil FVG pertama yang valid — langsung place limit order
+                    chosen_fvg = None
+                    for g in gaps:
+                        c1_c = float(g.get('c1_close', 0))
+                        c1_l = float(g.get('c1_low',   0))
+                        c1_h = float(g.get('c1_high',  0))
+                        if c1_c <= 0 or c1_h <= c1_l:
+                            continue
+                        c1_mid = (c1_h + c1_l) / 2.0
+                        if stype == "Long"  and c1_c <= c1_mid: continue
+                        if stype == "Short" and c1_c >= c1_mid: continue
+                        chosen_fvg = g; break
+
+                    if not chosen_fvg:
+                        continue
+
+                    c1_c   = float(chosen_fvg['c1_close'])
+                    c1_l   = float(chosen_fvg['c1_low'])
+                    c1_h   = float(chosen_fvg['c1_high'])
+                    c1_mid = (c1_h + c1_l) / 2.0
+                    dist   = abs(c1_c - c1_mid)
+                    gap_s  = float(chosen_fvg['top']) - float(chosen_fvg['bottom'])
+
+                    if dist < c1_c * 0.002:
+                        continue  # SL terlalu dekat entry
+
+                    side_order = "Buy" if stype == "Long" else "Sell"
+                    print(f"\n📊 {coin} | BOS {stype} | FVG Limit @ {c1_c:.6f} | "
+                          f"SL(mid):{c1_mid:.6f} dist:{dist/c1_c*100:.3f}% | "
+                          f"GapPct:{gap_s/c1_c*100:.3f}% | CHOCH:{choch_str}")
+
+                    order_id = place_limit_order(coin, side_order, c1_c, c1_mid)
+                    if order_id:
+                        pending[coin] = {
+                            'type'        : stype,
+                            'phase'       : 'WAIT_FILL',
+                            'order_id'    : order_id,
+                            'entry'       : c1_c,
+                            'sl'          : c1_mid,
+                            'dist'        : dist,
+                            'fvg_list'    : gaps,
+                            'bos_ts'      : bos_ts,
+                            'bos_idx'     : bos_idx,
+                            'swing_val'   : swing_val,
+                            'choch_level' : choch_level,
+                        }
+                else:
+                    pending[coin] = {
+                        'type'        : stype,
+                        'phase'       : 'WAIT_FVG_TOUCH',
+                        'fvg_list'    : gaps,
+                        'fvg_idx'     : 0,
+                        'bos_ts'      : bos_ts,
+                        'bos_idx'     : bos_idx,
+                        'swing_val'   : swing_val,
+                        'choch_level' : choch_level,
+                    }
+                    print(f"\n📊 {coin} | BOS {stype} | Swing: {swing_val:.6g} | C: {curr_h1['close']:.6g}")
+                    print(f"   ⛔ CHOCH batal: {choch_str}")
+                    print(f"   {len(gaps)} FVG kuat tersedia:")
+                    for i, g in enumerate(gaps):
+                        ocl      = g.get('c3_open', 0)
+                        sbr_lvl  = g.get('c1_close', 0)
+                        gap_size = g['top'] - g['bottom']
+                        ref_p    = ocl if ocl > 0 else (g['bottom'] if stype == 'Short' else g['top'])
+                        lbl      = ("RBS" if stype == "Long" else "SBR") if SBR_MODE else "OCL"
+                        entry_v  = sbr_lvl if SBR_MODE and sbr_lvl > 0 else ocl
+                        mode_lbl = f"{lbl}:{entry_v:.6g}"
+                        print(f"   FVG {i+1}: bot:{g['bottom']:.6g} top:{g['top']:.6g} "
+                              f"{mode_lbl} gap:{abs(gap_size)/ref_p*100:.3f}%" if ref_p > 0 else
+                              f"   FVG {i+1}: bot:{g['bottom']:.6g} top:{g['top']:.6g} {mode_lbl}")
 
             except Exception as e:
                 print(f"⚠️ Error {coin}: {e}"); continue
