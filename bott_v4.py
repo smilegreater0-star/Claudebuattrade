@@ -361,7 +361,7 @@ def place_market_order(symbol, side, entry, sl, trail_dist):
         res_bal = session.get_wallet_balance(accountType="UNIFIED", coin="USDT")
         acct    = res_bal['result']['list'][0]
         balance = float(acct['totalEquity'])
-        avail   = float(acct.get('totalAvailableBalance', balance))
+        avail   = float(acct.get('totalAvailableBalance') or balance)
         risk_usd = balance * 0.01
         dist     = abs(entry - sl)
         if dist == 0:
@@ -433,7 +433,7 @@ def place_limit_order(symbol, side, entry_p, sl_p):
         res_bal = session.get_wallet_balance(accountType="UNIFIED", coin="USDT")
         acct    = res_bal['result']['list'][0]
         balance = float(acct['totalEquity'])
-        avail   = float(acct.get('totalAvailableBalance', balance))
+        avail   = float(acct.get('totalAvailableBalance') or balance)
         risk_usd = balance * 0.01
         dist     = abs(entry_p - sl_p)
         if dist == 0:
