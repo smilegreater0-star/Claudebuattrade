@@ -45,22 +45,26 @@ COINS_SAVED = [
     '1000PEPEUSDT',
     'ONDOUSDT', 'EIGENUSDT', 'VIRTUALUSDT',
     'ENAUSDT', 'SHIB1000USDT',
-    'OPUSDT', 'STXUSDT', 'ALGOUSDT',
-    'ORCAUSDT', 'XRPUSDT', 'FARTCOINUSDT', 'TAOUSDT',
+    'JUPUSDT', 'SEIUSDT', 'OPUSDT',
+    'STXUSDT', 'APEUSDT', 'ALGOUSDT',
+    'ORCAUSDT', 'XRPUSDT', 'XAUTUSDT', 'FARTCOINUSDT', 'TAOUSDT',
 ]
 
-# ── Gabungan: COINS_SAVED + lolos filter batch 2 (PF ≥ 1.40, compound +) ──
+# ── Gabungan: COINS_SAVED + lolos filter batch 2 ──
 COINS = [
-    # Batch 1 (17 coin — removed: JUP, SEI, APE, XAUT)
+    # Batch 1 (21 coin)
     'XVGUSDT', 'BELUSDT', '1000BONKUSDT', 'BERAUSDT',
     '1000PEPEUSDT',
     'ONDOUSDT', 'EIGENUSDT', 'VIRTUALUSDT',
     'ENAUSDT', 'SHIB1000USDT',
-    'OPUSDT', 'STXUSDT', 'ALGOUSDT',
-    'ORCAUSDT', 'XRPUSDT', 'FARTCOINUSDT', 'TAOUSDT',
-    # Batch 2 (7 coin — removed: TIA, AAVE, GALA, GMX, HBAR, AXS, DYDX)
-    'SOLUSDT', 'SUIUSDT', 'IMXUSDT',
-    'SANDUSDT', 'LTCUSDT', 'FLOWUSDT', 'ICPUSDT',
+    'JUPUSDT', 'SEIUSDT', 'OPUSDT',
+    'STXUSDT', 'APEUSDT', 'ALGOUSDT',
+    'ORCAUSDT', 'XRPUSDT', 'XAUTUSDT', 'FARTCOINUSDT', 'TAOUSDT',
+    # Batch 2 (14 coin — termasuk 7 yang pernah dibuang)
+    'SOLUSDT', 'SUIUSDT', 'TIAUSDT',
+    'AAVEUSDT', 'GALAUSDT', 'IMXUSDT', 'GMXUSDT',
+    'HBARUSDT', 'SANDUSDT', 'AXSUSDT',
+    'LTCUSDT', 'DYDXUSDT', 'FLOWUSDT', 'ICPUSDT',
 ]
 
 # 2025-01-01 00:00:00 UTC  →  2026-04-30 23:59:59 UTC  (dalam ms)
