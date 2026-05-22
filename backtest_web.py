@@ -493,6 +493,63 @@ def _run():
     all_trades_list = []
     results         = []
 
+    # ── Concurrent mode (fvg_limit) ──────────────────────────────────────
+    if _ENTRY_MODE == 'fvg_limit':
+        _log_msg("📡 Fetching data semua coin...")
+        coins_data = {}
+        for symbol in COINS:
+            _log_msg(f"  Fetch {symbol}...")
+            try:
+                df = fetch_bybit_m5(symbol)
+                if len(df) < 3000:
+                    _log_msg(f"   ⚠ Data {symbol} terlalu sedikit, skip.")
+                    continue
+                df = df[(df['ts'] >= pd.Timestamp(_START_MS, unit='ms')) &
+                        (df['ts'] <= pd.Timestamp(_END_MS, unit='ms'))].reset_index(drop=True)
+                coins_data[symbol] = df
+                _log_msg(f"   ✅ {symbol}: {len(df)} candle")
+            except Exception as e:
+                _log_msg(f"   ❌ {symbol}: {e}")
+
+        _log_msg(f"\n🔄 Concurrent backtest: {len(coins_data)} coin, max {bt.MAX_CONCURRENT} slot...")
+        concurrent_trades, concurrent_final = bt.backtest_concurrent(
+            coins_data, initial_balance=INITIAL_BALANCE, max_concurrent=bt.MAX_CONCURRENT)
+
+        if not concurrent_trades:
+            _log_msg("⚠ Tidak ada trade dari concurrent backtest.")
+        else:
+            total_n = len(concurrent_trades)
+            total_w = sum(1 for t in concurrent_trades if t['outcome'] == 'tp')
+            wr = total_w / total_n * 100 if total_n else 0
+            cpnl = concurrent_final - INITIAL_BALANCE
+            _log_msg(f"TOTAL: {total_n} trade | WR:{wr:.1f}% | "
+                     f"Compound: ${INITIAL_BALANCE:.2f} → ${concurrent_final:.2f} "
+                     f"(+${cpnl:.2f}, +{cpnl/INITIAL_BALANCE*100:.0f}% ROI)")
+
+            # Per-coin breakdown
+            from collections import defaultdict
+            coin_stats = defaultdict(lambda: {'n': 0, 'w': 0, 'pnl': 0})
+            for t in concurrent_trades:
+                s = coin_stats[t['symbol']]
+                s['n']   += 1
+                s['w']   += 1 if t['outcome'] == 'tp' else 0
+                s['pnl'] += t['pnl_usd']
+            _log_msg("\nPer-coin (trade efektif setelah slot filter):")
+            for sym in COINS:
+                s = coin_stats.get(sym)
+                if not s or s['n'] == 0:
+                    _log_msg(f"  {sym:<20} — tidak ada trade")
+                else:
+                    wr_c = s['w'] / s['n'] * 100
+                    _log_msg(f"  {sym:<20} {s['n']:>4} trade | WR:{wr_c:.0f}% | PnL:${s['pnl']:.2f}")
+
+        with _lock:
+            _phase = 'done'
+            _results = []
+            _compound_final_bal = concurrent_final
+            _all_trades = concurrent_trades
+        return
+
     for symbol in COINS:
         _log_msg(f"\n{'─'*54}")
         _log_msg(f"▶ {symbol}")

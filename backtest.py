@@ -1590,6 +1590,417 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
 
 
 # ============================================================
+# CONCURRENT MULTI-COIN BACKTEST
+# ============================================================
+
+def _bt_conc_detect_bos(state: dict, active_slots: set) -> None:
+    """
+    Deteksi BOS H1 dari rolling state. Update state['pending'] jika BOS baru ditemukan.
+    Dipanggil setiap kali H1 close saat coin tidak punya active trade.
+    """
+    h1_completed = state['h1_completed']
+    if len(h1_completed) < 20:
+        return
+
+    h1_df = pd.DataFrame(h1_completed)
+    sh_h1, sl_h1 = find_last_swing_bos(h1_df)
+    if not sh_h1 or not sl_h1:
+        return
+
+    closed_h1 = h1_df.iloc[-2]   # H1 yang baru saja close (second-to-last)
+
+    is_long = False; is_short = False
+    swing_val = None; bos_idx = None
+
+    for sh in sh_h1[-3:]:
+        if closed_h1['close'] > sh['val']:
+            is_long = True; swing_val = sh['val']
+            bos_idx = sl_h1[-1]['idx'] if sl_h1 else sh['idx']
+    for sl in sl_h1[-3:]:
+        if closed_h1['close'] < sl['val']:
+            is_short = True; swing_val = sl['val']
+            bos_idx = sh_h1[-1]['idx'] if sh_h1 else sl['idx']
+
+    if not (is_long or is_short) or swing_val is None:
+        return
+
+    stype   = "Short" if is_short else "Long"
+    bos_key = (stype, round(swing_val, 8))
+
+    # Skip jika BOS sama masih pending
+    existing = state['pending']
+    if existing and existing.get('bos_key') == bos_key:
+        return
+    # Skip jika BOS ini sudah pernah ditrade
+    if state['done_bos'] == bos_key:
+        return
+
+    # CHOCH level
+    if stype == 'Long':
+        sl_below    = [s for s in sl_h1 if s['val'] < swing_val]
+        choch_level = sl_below[-1]['val'] if sl_below else None
+    else:
+        sh_above    = [s for s in sh_h1 if s['val'] > swing_val]
+        choch_level = sh_above[-1]['val'] if sh_above else None
+
+    # Skip jika struktur sudah broken saat BOS terdeteksi
+    if choch_level is not None:
+        if stype == 'Long'  and closed_h1['close'] < choch_level: return
+        if stype == 'Short' and closed_h1['close'] > choch_level: return
+
+    # FVG kuat: sama dengan filter di backtest_coin fvg_limit
+    gaps = get_internal_gaps(h1_df, stype, len(h1_df) - 1)
+    if not gaps:
+        return
+
+    # Filter strong FVG
+    gaps = [g for g in gaps
+            if g.get('c3_vol', 0) > g.get('vol_avg20h', 0) > 0
+            and g.get('c1_close', 0) > 0]
+
+    # Filter by CHOCH
+    if choch_level is not None:
+        if stype == 'Long':
+            gaps = [g for g in gaps if g['bottom'] >= choch_level]
+        else:
+            gaps = [g for g in gaps if g['top'] <= choch_level]
+
+    if not gaps:
+        return
+
+    # Pilih FVG pertama yang valid: c1_close di atas c1_mid (Long) / bawah c1_mid (Short)
+    chosen = None
+    for g in gaps:
+        c1_c = float(g.get('c1_close', 0))
+        c1_l = float(g.get('c1_low',   0))
+        c1_h = float(g.get('c1_high',  0))
+        if c1_c <= 0 or c1_h <= c1_l:
+            continue
+        c1_mid = (c1_h + c1_l) / 2.0
+        if stype == 'Long'  and c1_c <= c1_mid: continue
+        if stype == 'Short' and c1_c >= c1_mid: continue
+        chosen = g; break
+
+    if not chosen:
+        return
+
+    c1_c   = float(chosen['c1_close'])
+    c1_l   = float(chosen['c1_low'])
+    c1_h   = float(chosen['c1_high'])
+    c1_mid = (c1_h + c1_l) / 2.0
+    gap_s  = float(chosen['top']) - float(chosen['bottom'])
+    dist   = abs(c1_c - c1_mid)
+
+    if dist < c1_c * MIN_DIST_PCT:
+        return
+
+    # d_trail: full C1 range + buffer (sama dengan backtest_coin fvg_limit)
+    if stype == 'Long':
+        d_trail = max(dist, c1_c - (c1_l - gap_s * 0.1))
+    else:
+        d_trail = max(dist, (c1_h + gap_s * 0.1) - c1_c)
+
+    # Jika ada pending berbeda → override (lepas slot lama jika WAIT_FILL)
+    if existing and existing.get('phase') == 'WAIT_FILL':
+        active_slots.discard(state['sym'])
+
+    state['pending'] = {
+        'bos_key'     : bos_key,
+        'phase'       : 'WAIT_APPROACH',
+        'entry'       : c1_c,
+        'sl'          : c1_mid,
+        'dist'        : dist,
+        'd_trail'     : d_trail,
+        'stype'       : stype,
+        'choch_level' : choch_level,
+        'swing_val'   : swing_val,
+    }
+
+
+def _bt_conc_update_trade(trade: dict, h: float, l: float, c: float,
+                           ts, balance: float):
+    """
+    Update active trade untuk satu M5 candle.
+    Returns (outcome, exit_p, exit_ts, pnl_usd) jika trade close, else None.
+    """
+    TRAIL_TIMEOUT_C = 1152   # 96 jam × 12 candle/jam
+
+    stype    = trade['stype']
+    entry    = trade['entry']
+    dist     = trade['dist']
+    d_trail  = trade['d_trail']
+    trail_sl = trade['trail_sl']
+    peak     = trade['peak']
+    sl_orig  = trade['sl_orig']
+    tp       = trade['tp']
+    risk_usd = balance * RISK_PCT
+
+    if TRAIL_STOP > 0:
+        if stype == 'Long':
+            if h > peak:
+                peak = h; trade['peak'] = peak
+                if peak >= entry + d_trail:
+                    new_tsl = max(entry, peak - TRAIL_STOP * d_trail)
+                    if new_tsl > trail_sl:
+                        trail_sl = new_tsl; trade['trail_sl'] = trail_sl
+            cur_sl = trail_sl
+            if l <= cur_sl:
+                r = (cur_sl - entry) / dist
+                return ('tp' if cur_sl > entry else 'sl'), cur_sl, ts, r * risk_usd
+            if h >= tp:
+                r = (tp - entry) / dist
+                return 'tp', tp, ts, r * risk_usd
+        else:  # Short
+            if l < peak:
+                peak = l; trade['peak'] = peak
+                if peak <= entry - d_trail:
+                    new_tsl = min(entry, peak + TRAIL_STOP * d_trail)
+                    if new_tsl < trail_sl:
+                        trail_sl = new_tsl; trade['trail_sl'] = trail_sl
+            cur_sl = trail_sl
+            if h >= cur_sl:
+                r = (entry - cur_sl) / dist
+                return ('tp' if cur_sl < entry else 'sl'), cur_sl, ts, r * risk_usd
+            if l <= tp:
+                r = (entry - tp) / dist
+                return 'tp', tp, ts, r * risk_usd
+    else:
+        if stype == 'Long':
+            if l <= sl_orig: return 'sl', sl_orig, ts, -risk_usd
+            if h >= tp:
+                r = (tp - entry) / dist
+                return 'tp', tp, ts, r * risk_usd
+        else:
+            if h >= sl_orig: return 'sl', sl_orig, ts, -risk_usd
+            if l <= tp:
+                r = (entry - tp) / dist
+                return 'tp', tp, ts, r * risk_usd
+
+    # Trail timeout
+    if TRAIL_STOP > 0:
+        if trade['trail_sl'] != trade.get('trail_prev_sl', sl_orig):
+            trade['trail_no_move'] = 0
+            trade['trail_prev_sl'] = trade['trail_sl']
+        else:
+            trade['trail_no_move'] = trade.get('trail_no_move', 0) + 1
+        if trade['trail_no_move'] >= TRAIL_TIMEOUT_C:
+            r = (c - entry) / dist if stype == 'Long' else (entry - c) / dist
+            return 'timeout', c, ts, r * risk_usd
+
+    return None
+
+
+def backtest_concurrent(coins_data: dict,
+                         initial_balance: float = INITIAL_BALANCE,
+                         max_concurrent: int = MAX_CONCURRENT) -> tuple:
+    """
+    Event-driven multi-coin backtest: semua coin diproses bersamaan dalam urutan
+    timestamp. Shared balance (1% risk dari balance saat itu) dan slot limit
+    (maks max_concurrent posisi + WAIT_FILL order sekaligus).
+
+    coins_data: {symbol: df_m5}   — df sudah di-filter rentang waktu
+    Returns: (all_trades, final_balance)
+    """
+    import heapq
+
+    WARMUP = 2400    # 200 jam warmup per coin (identik backtest_coin)
+    H1_WIN = 100     # 100 H1 dalam rolling window
+
+    balance     = initial_balance
+    all_trades  = []
+    active_slots = set()    # symbols yang sedang WAIT_FILL atau active trade
+
+    # ── Init per-coin state ───────────────────────────────────────────────
+    states = {}
+    heap   = []
+
+    for sym, df in coins_data.items():
+        df = df.reset_index(drop=True)
+        total = len(df)
+        if total < WARMUP + 12:
+            continue
+
+        # Pre-build H1 dari warmup (untuk BOS detection setelah WARMUP)
+        h1_pre = []
+        for k in range(0, WARMUP - (WARMUP % 12), 12):
+            sl = df.iloc[k: k + 12]
+            if len(sl) < 12:
+                continue
+            h1_pre.append({
+                'ts'   : sl['ts'].iloc[0],
+                'ts_ms': int(sl['ts_ms'].iloc[0]),
+                'open' : float(sl['open'].iloc[0]),
+                'high' : float(sl['high'].max()),
+                'low'  : float(sl['low'].min()),
+                'close': float(sl['close'].iloc[-1]),
+                'vol'  : float(sl['vol'].sum()) if 'vol' in sl.columns else 0.0,
+            })
+        if len(h1_pre) > H1_WIN:
+            h1_pre = h1_pre[-H1_WIN:]
+
+        states[sym] = {
+            'sym'          : sym,
+            'df'           : df,
+            'total'        : total,
+            'h1_m5_buf'    : [],        # M5 accumulating current H1
+            'h1_completed' : h1_pre,    # rolling list of completed H1 candles
+            'pending'      : None,      # WAIT_APPROACH atau WAIT_FILL setup
+            'trade'        : None,      # active trade dict
+            'done_bos'     : None,      # (stype, swing_val) terakhir ditrade
+        }
+        heapq.heappush(heap, (int(df['ts_ms'].iloc[WARMUP]), WARMUP, sym))
+
+    # ── Main event loop ───────────────────────────────────────────────────
+    while heap:
+        ts_ms_ev, idx, sym = heapq.heappop(heap)
+        state = states[sym]
+        row   = state['df'].iloc[idx]
+
+        h_p = float(row['high'])
+        l_p = float(row['low'])
+        c_p = float(row['close'])
+        o_p = float(row['open'])
+        ts  = row['ts']
+        v_p = float(row['vol']) if 'vol' in row.index else 0.0
+
+        # ── 1. Active trade update ────────────────────────────────────────
+        if state['trade'] is not None:
+            trade  = state['trade']
+            result = _bt_conc_update_trade(trade, h_p, l_p, c_p, ts, balance)
+            if result is not None:
+                outcome, exit_p, exit_ts, pnl_usd = result
+                balance = max(0.0, balance + pnl_usd)
+                entry   = trade['entry']
+                stype   = trade['stype']
+                all_trades.append({
+                    'symbol'    : sym,
+                    'type'      : stype,
+                    'entry_ts'  : trade['entry_ts'],
+                    'exit_ts'   : exit_ts,
+                    'entry'     : round(entry, 8),
+                    'sl'        : round(trade['sl_orig'], 8),
+                    'tp'        : round(trade['tp'], 8),
+                    'exit_price': round(exit_p, 8),
+                    'outcome'   : outcome,
+                    'pnl_usd'   : round(pnl_usd, 4),
+                    'balance'   : round(balance, 4),
+                    'dist'      : trade['dist'],
+                    'slot_skip' : False,
+                })
+                active_slots.discard(sym)
+                state['done_bos'] = trade.get('done_key')
+                state['trade']    = None
+
+        # ── 2. Pending setup handling ─────────────────────────────────────
+        elif state['pending'] is not None:
+            pending = state['pending']
+            stype   = pending['stype']
+            choch   = pending.get('choch_level')
+            entry   = pending['entry']
+            dist    = pending['dist']
+
+            # CHOCH check setiap M5
+            choch_hit = (choch is not None and (
+                (stype == 'Long'  and c_p < choch) or
+                (stype == 'Short' and c_p > choch)
+            ))
+            if choch_hit:
+                active_slots.discard(sym)
+                state['pending']  = None
+                state['done_bos'] = None   # structure reset → BOS baru bisa detect
+
+            elif pending['phase'] == 'WAIT_APPROACH':
+                thr = APPROACH_R * dist
+                if (stype == 'Long'  and l_p <= entry + thr) or \
+                   (stype == 'Short' and h_p >= entry - thr):
+                    if len(active_slots) < max_concurrent:
+                        pending['phase'] = 'WAIT_FILL'
+                        active_slots.add(sym)
+
+            elif pending['phase'] == 'WAIT_FILL':
+                thr = APPROACH_R * dist
+                # Harga mundur → cancel, kembali WAIT_APPROACH
+                if (stype == 'Long'  and c_p > entry + thr) or \
+                   (stype == 'Short' and c_p < entry - thr):
+                    pending['phase'] = 'WAIT_APPROACH'
+                    active_slots.discard(sym)
+                # Fill check
+                elif (stype == 'Long'  and l_p <= entry) or \
+                     (stype == 'Short' and h_p >= entry):
+                    d       = dist
+                    d_trail = pending.get('d_trail', dist)
+                    sl_nat  = pending['sl']
+                    tp_nat  = entry + 1000 * d if stype == 'Long' else entry - 1000 * d
+                    state['trade'] = {
+                        'entry'         : entry,
+                        'sl_orig'       : sl_nat,
+                        'trail_sl'      : sl_nat,
+                        'peak'          : entry,
+                        'tp'            : tp_nat,
+                        'dist'          : d,
+                        'd_trail'       : d_trail,
+                        'stype'         : stype,
+                        'entry_ts'      : ts,
+                        'done_key'      : pending['bos_key'],
+                        'trail_no_move' : 0,
+                        'trail_prev_sl' : sl_nat,
+                    }
+                    state['done_bos'] = pending['bos_key']
+                    state['pending']  = None
+                    # slot tetap aktif (akan di-discard saat trade close)
+
+            # Selalu akumulasi H1 saat pending (untuk data fresh post-CHOCH)
+            state['h1_m5_buf'].append({
+                'ts': ts, 'ts_ms': int(ts_ms_ev),
+                'open': o_p, 'high': h_p, 'low': l_p, 'close': c_p, 'vol': v_p,
+            })
+            if len(state['h1_m5_buf']) >= 12:
+                h1c = {
+                    'ts'   : state['h1_m5_buf'][0]['ts'],
+                    'ts_ms': state['h1_m5_buf'][0]['ts_ms'],
+                    'open' : state['h1_m5_buf'][0]['open'],
+                    'high' : max(c['high'] for c in state['h1_m5_buf']),
+                    'low'  : min(c['low']  for c in state['h1_m5_buf']),
+                    'close': state['h1_m5_buf'][-1]['close'],
+                    'vol'  : sum(c['vol']  for c in state['h1_m5_buf']),
+                }
+                state['h1_completed'].append(h1c)
+                state['h1_m5_buf'] = []
+                if len(state['h1_completed']) > H1_WIN:
+                    state['h1_completed'] = state['h1_completed'][-H1_WIN:]
+
+        # ── 3. Idle: akumulasi H1 + BOS detection ────────────────────────
+        else:
+            state['h1_m5_buf'].append({
+                'ts': ts, 'ts_ms': int(ts_ms_ev),
+                'open': o_p, 'high': h_p, 'low': l_p, 'close': c_p, 'vol': v_p,
+            })
+            if len(state['h1_m5_buf']) >= 12:
+                h1c = {
+                    'ts'   : state['h1_m5_buf'][0]['ts'],
+                    'ts_ms': state['h1_m5_buf'][0]['ts_ms'],
+                    'open' : state['h1_m5_buf'][0]['open'],
+                    'high' : max(c['high'] for c in state['h1_m5_buf']),
+                    'low'  : min(c['low']  for c in state['h1_m5_buf']),
+                    'close': state['h1_m5_buf'][-1]['close'],
+                    'vol'  : sum(c['vol']  for c in state['h1_m5_buf']),
+                }
+                state['h1_completed'].append(h1c)
+                state['h1_m5_buf'] = []
+                if len(state['h1_completed']) > H1_WIN:
+                    state['h1_completed'] = state['h1_completed'][-H1_WIN:]
+                if len(state['h1_completed']) >= 20:
+                    _bt_conc_detect_bos(state, active_slots)
+
+        # ── Push candle berikutnya untuk coin ini ──────────────────────
+        nxt = idx + 1
+        if nxt < state['total']:
+            heapq.heappush(heap, (int(state['df']['ts_ms'].iloc[nxt]), nxt, sym))
+
+    return all_trades, balance
+
+
+# ============================================================
 # MAIN — jalankan semua coin
 # ============================================================
 
