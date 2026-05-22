@@ -41,30 +41,19 @@ bt.MIN_DIST_PCT  = _MIN_DIST_PCT
 
 # ── Coin yang sudah lolos backtest fvg_sbr (disimpan, nanti digabung) ─────
 COINS_SAVED = [
-    'XVGUSDT', 'BELUSDT', '1000BONKUSDT', 'BERAUSDT',
-    '1000PEPEUSDT',
-    'ONDOUSDT', 'EIGENUSDT', 'VIRTUALUSDT',
-    'ENAUSDT', 'SHIB1000USDT',
-    'JUPUSDT', 'SEIUSDT', 'OPUSDT',
-    'STXUSDT', 'APEUSDT', 'ALGOUSDT',
-    'ORCAUSDT', 'XRPUSDT', 'XAUTUSDT', 'FARTCOINUSDT', 'TAOUSDT',
+    # 15 coin positif di fvg_limit concurrent backtest (Jan2025–Apr2026)
+    'BELUSDT', '1000BONKUSDT', '1000PEPEUSDT',
+    'ONDOUSDT', 'VIRTUALUSDT', 'ENAUSDT', 'SEIUSDT',
+    'ALGOUSDT', 'ORCAUSDT', 'XRPUSDT', 'XAUTUSDT',
+    'FARTCOINUSDT', 'TAOUSDT', 'TIAUSDT', 'SANDUSDT',
 ]
 
-# ── Gabungan: COINS_SAVED + lolos filter batch 2 ──
+# ── Coin lolos filter fvg_limit (PnL compound positif) ──
 COINS = [
-    # Batch 1 (21 coin)
-    'XVGUSDT', 'BELUSDT', '1000BONKUSDT', 'BERAUSDT',
-    '1000PEPEUSDT',
-    'ONDOUSDT', 'EIGENUSDT', 'VIRTUALUSDT',
-    'ENAUSDT', 'SHIB1000USDT',
-    'JUPUSDT', 'SEIUSDT', 'OPUSDT',
-    'STXUSDT', 'APEUSDT', 'ALGOUSDT',
-    'ORCAUSDT', 'XRPUSDT', 'XAUTUSDT', 'FARTCOINUSDT', 'TAOUSDT',
-    # Batch 2 (14 coin — termasuk 7 yang pernah dibuang)
-    'SOLUSDT', 'SUIUSDT', 'TIAUSDT',
-    'AAVEUSDT', 'GALAUSDT', 'IMXUSDT', 'GMXUSDT',
-    'HBARUSDT', 'SANDUSDT', 'AXSUSDT',
-    'LTCUSDT', 'DYDXUSDT', 'FLOWUSDT', 'ICPUSDT',
+    'BELUSDT', '1000BONKUSDT', '1000PEPEUSDT',
+    'ONDOUSDT', 'VIRTUALUSDT', 'ENAUSDT', 'SEIUSDT',
+    'ALGOUSDT', 'ORCAUSDT', 'XRPUSDT', 'XAUTUSDT',
+    'FARTCOINUSDT', 'TAOUSDT', 'TIAUSDT', 'SANDUSDT',
 ]
 
 # 2025-01-01 00:00:00 UTC  →  2026-04-30 23:59:59 UTC  (dalam ms)

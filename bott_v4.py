@@ -85,16 +85,11 @@ MAX_CONCURRENT = 3      # maks order limit aktif + posisi bersamaan (margin ×10
 APPROACH_R     = 2.0    # place limit saat harga dalam 2R dari entry
 
 SYMBOLS = [
-    # Batch 1 (17 coin — removed: JUP, SEI, APE, XAUT)
-    'XVGUSDT', 'BELUSDT', '1000BONKUSDT', 'BERAUSDT',
-    '1000PEPEUSDT',
-    'ONDOUSDT', 'EIGENUSDT', 'VIRTUALUSDT',
-    'ENAUSDT', 'SHIB1000USDT',
-    'OPUSDT', 'STXUSDT', 'ALGOUSDT',
-    'ORCAUSDT', 'XRPUSDT', 'FARTCOINUSDT', 'TAOUSDT',
-    # Batch 2 (7 coin — removed: TIA, AAVE, GALA, GMX, HBAR, AXS, DYDX)
-    'SOLUSDT', 'SUIUSDT', 'IMXUSDT',
-    'SANDUSDT', 'LTCUSDT', 'FLOWUSDT', 'ICPUSDT',
+    # 15 coin lolos filter fvg_limit (PnL compound positif, concurrent backtest Jan2025–Apr2026)
+    'BELUSDT', '1000BONKUSDT', '1000PEPEUSDT',
+    'ONDOUSDT', 'VIRTUALUSDT', 'ENAUSDT', 'SEIUSDT',
+    'ALGOUSDT', 'ORCAUSDT', 'XRPUSDT', 'XAUTUSDT',
+    'FARTCOINUSDT', 'TAOUSDT', 'TIAUSDT', 'SANDUSDT',
 ]
 
 ATR_THRESHOLD = {
