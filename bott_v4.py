@@ -855,16 +855,14 @@ def run_bot():
                             entry_p    = setup['entry']
                             sl_p       = setup['sl']
                             dist       = setup['dist']
-                            # Trail pakai full-range dist agar aktivasi/step tidak terlalu kecil
-                            dist_trail = setup.get('dist_trail', dist)
                             side_order = "Buy" if stype == "Long" else "Sell"
-                            trail_d    = TRAIL_STOP * dist_trail
+                            trail_d    = TRAIL_STOP * dist
                             info       = get_instrument_info(coin)
                             tick       = info.get('tick_size', 0.0001)
                             trail_r    = round_price(trail_d, tick)
                             active_p   = round_price(
-                                entry_p + dist_trail if side_order == "Buy"
-                                else entry_p - dist_trail, tick)
+                                entry_p + dist if side_order == "Buy"
+                                else entry_p - dist, tick)
                             if trail_r > 0 and active_p > 0:
                                 try:
                                     session.set_trading_stop(
@@ -1105,12 +1103,7 @@ def run_bot():
                     c1_h   = float(chosen_fvg['c1_high'])
                     c1_mid = (c1_h + c1_l) / 2.0
                     gap_s  = float(chosen_fvg['top']) - float(chosen_fvg['bottom'])
-                    dist   = abs(c1_c - c1_mid)   # risk dist (SL placement + position sizing)
-                    # Trail dist = full C1 range + gap buffer (seperti fvg_sbr sebelumnya)
-                    if stype == "Long":
-                        dist_trail = max(dist, c1_c - (c1_l - gap_s * 0.1))
-                    else:
-                        dist_trail = max(dist, (c1_h + gap_s * 0.1) - c1_c)
+                    dist   = abs(c1_c - c1_mid)
 
                     if dist < c1_c * 0.002:
                         continue  # SL terlalu dekat entry
@@ -1118,7 +1111,6 @@ def run_bot():
                     side_order = "Buy" if stype == "Long" else "Sell"
                     print(f"\n📊 {coin} | BOS {stype} | FVG Limit @ {c1_c:.6f} | "
                           f"SL(mid):{c1_mid:.6f} dist:{dist/c1_c*100:.3f}% | "
-                          f"TrailRef:{dist_trail/c1_c*100:.3f}% | "
                           f"GapPct:{gap_s/c1_c*100:.3f}% | CHOCH:{choch_str}")
 
                     order_id = place_limit_order(coin, side_order, c1_c, c1_mid)
@@ -1130,7 +1122,6 @@ def run_bot():
                             'entry'       : c1_c,
                             'sl'          : c1_mid,
                             'dist'        : dist,
-                            'dist_trail'  : dist_trail,
                             'fvg_list'    : gaps,
                             'bos_ts'      : bos_ts,
                             'bos_idx'     : bos_idx,
