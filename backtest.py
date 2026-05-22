@@ -1063,14 +1063,16 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
             if gap_size <= 0 or c1_close <= 0:
                 c_dir_fail += 1; i += 12; continue
 
+            c1_mid = (c1_high + c1_low) / 2.0  # SL di 50% range C1
+
             if stype == "Long":
                 entry_limit = c1_close
-                sl_nat      = c1_low - gap_size * 0.1
+                sl_nat      = c1_mid
                 if entry_limit <= sl_nat: c_dir_fail += 1; i += 12; continue
                 d = entry_limit - sl_nat
             else:
                 entry_limit = c1_close
-                sl_nat      = c1_high + gap_size * 0.1
+                sl_nat      = c1_mid
                 if sl_nat <= entry_limit: c_dir_fail += 1; i += 12; continue
                 d = sl_nat - entry_limit
 
