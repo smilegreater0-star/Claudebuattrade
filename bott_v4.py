@@ -889,6 +889,21 @@ def run_bot():
                         thr    = APPROACH_R * dist
                         approaching = (stype == 'Long'  and curr_price <= entry + thr) or \
                                       (stype == 'Short' and curr_price >= entry - thr)
+                        # Log status approach setiap iterasi
+                        if stype == 'Long':
+                            approach_thr = entry + thr
+                            gap_to_thr   = curr_price - approach_thr   # negatif = belum sampai
+                        else:
+                            approach_thr = entry - thr
+                            gap_to_thr   = approach_thr - curr_price   # negatif = belum sampai
+                        gap_pct = gap_to_thr / entry * 100
+                        if approaching:
+                            status_str = f"✅ DALAM RANGE"
+                        else:
+                            status_str = f"⏳ kurang {abs(gap_pct):.2f}% ke threshold"
+                        print(f"👁️  {coin} WAIT | {stype} | now:{curr_price:.6f} "
+                              f"entry:{entry:.6f} thr:{approach_thr:.6f} | {status_str}")
+
                         if approaching:
                             active_count = len(active_positions) + sum(
                                 1 for s in pending.values() if s.get('phase') == 'WAIT_FILL')
