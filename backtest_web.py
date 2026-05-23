@@ -50,13 +50,14 @@ COINS_SAVED = [
     'LTCUSDT', 'DYDXUSDT', 'FLOWUSDT', 'ICPUSDT',
 ]
 
-# 14 coin: WR > 50% + WR tepat 50% (positif PnL) dari concurrent backtest (30 coin, reverse x2)
+# 17 coin: WR ≥ 45% + positif PnL dari concurrent backtest (30 coin, reverse x2)
 COINS = [
     'BELUSDT', 'ONDOUSDT', 'VIRTUALUSDT', 'ALGOUSDT',
     'XAUTUSDT', 'FARTCOINUSDT',
     'BERAUSDT', 'SHIB1000USDT', 'STXUSDT', 'APEUSDT',
     'SOLUSDT', 'LTCUSDT',
     'EIGENUSDT', 'FLOWUSDT',
+    '1000BONKUSDT', 'OPUSDT', 'AAVEUSDT',
 ]
 
 # 2025-01-01 00:00:00 UTC  →  2026-04-30 23:59:59 UTC  (dalam ms)
