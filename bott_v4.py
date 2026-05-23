@@ -85,11 +85,16 @@ MAX_CONCURRENT = 3      # maks order limit aktif + posisi bersamaan (margin ×10
 APPROACH_R     = 2.0    # place limit saat harga dalam 2R dari entry
 
 SYMBOLS = [
-    # 14 coin: WR > 50% + WR tepat 50% dari concurrent backtest (Jan2025–Apr2026)
-    'BELUSDT', 'ONDOUSDT', 'VIRTUALUSDT', 'ALGOUSDT',
-    'XAUTUSDT', 'FARTCOINUSDT', 'BERAUSDT', 'SHIB1000USDT',
-    'STXUSDT', 'APEUSDT', 'SOLUSDT', 'LTCUSDT',
-    'EIGENUSDT', 'FLOWUSDT',
+    # 31 coin — hasil concurrent backtest Jan2025–Apr2026
+    # Batch 1
+    'XVGUSDT', 'BELUSDT', '1000BONKUSDT', 'BERAUSDT', '1000PEPEUSDT',
+    'ONDOUSDT', 'VIRTUALUSDT', 'ENAUSDT', 'SHIB1000USDT',
+    'JUPUSDT', 'SEIUSDT', 'OPUSDT',
+    'ALGOUSDT', 'ORCAUSDT', 'XRPUSDT', 'XAUTUSDT', 'FARTCOINUSDT', 'TAOUSDT',
+    # Batch 2
+    'SOLUSDT', 'SUIUSDT', 'TIAUSDT', 'AAVEUSDT', 'GALAUSDT',
+    'IMXUSDT', 'GMXUSDT', 'HBARUSDT', 'SANDUSDT', 'AXSUSDT',
+    'LTCUSDT', 'DYDXUSDT', 'ICPUSDT',
 ]
 
 ATR_THRESHOLD = {
@@ -100,23 +105,30 @@ ATR_THRESHOLD = {
     'BERAUSDT'      : 0.0031,   # P25=0.305%
     '1000PEPEUSDT'  : 0.0029,   # P25=0.292%
     'ONDOUSDT'      : 0.0025,   # P25=0.254%
-    'EIGENUSDT'     : 0.0033,   # P25=0.331%
     'VIRTUALUSDT'   : 0.0036,   # P25=0.363%
     'ENAUSDT'       : 0.0035,   # P25=0.348%
     'SHIB1000USDT'  : 0.0019,   # P25=0.188%
+    'JUPUSDT'       : 0.0028,   # P25=0.278%
+    'SEIUSDT'       : 0.0025,   # P25=0.250%
     'OPUSDT'        : 0.0028,   # P25=0.277%
-    'STXUSDT'       : 0.0023,   # P25=0.229%
     'ALGOUSDT'      : 0.0023,   # P25=0.228%
     'ORCAUSDT'      : 0.0021,   # P25=0.214%
     'XRPUSDT'       : 0.0018,   # P25=0.185%
+    'XAUTUSDT'      : 0.0003,   # P25=0.027%
     'FARTCOINUSDT'  : 0.0050,   # P25=0.503%
     'TAOUSDT'       : 0.0031,   # P25=0.313%
     'SOLUSDT'       : 0.0022,   # P25=0.217%
     'SUIUSDT'       : 0.0026,   # P25=0.263%
+    'TIAUSDT'       : 0.0030,   # P25=0.298%
+    'AAVEUSDT'      : 0.0026,   # P25=0.259%
+    'GALAUSDT'      : 0.0028,   # P25=0.278%
     'IMXUSDT'       : 0.0028,   # P25=0.276%
+    'GMXUSDT'       : 0.0020,   # P25=0.203%
+    'HBARUSDT'      : 0.0022,   # P25=0.217%
     'SANDUSDT'      : 0.0022,   # P25=0.220%
+    'AXSUSDT'       : 0.0023,   # P25=0.231%
     'LTCUSDT'       : 0.0018,   # P25=0.178%
-    'FLOWUSDT'      : 0.0020,   # P25=0.200%
+    'DYDXUSDT'      : 0.0026,   # P25=0.264%
     'ICPUSDT'       : 0.0023,   # P25=0.231%
 }
 
