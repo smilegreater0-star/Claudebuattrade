@@ -122,7 +122,7 @@ ATR_THRESHOLD = {
 pending          = {}
 active_positions = {}
 instrument_cache = {}
-done_setups      = {}   # coin -> (swing_val, type) — cegah re-entry di BOS yang sama
+done_setups      = {}   # coin -> {swing_val, stype, used_ocl} — cegah re-entry di BOS yang sama
 
 
 # ============================================================
