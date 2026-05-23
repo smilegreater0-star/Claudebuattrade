@@ -1867,6 +1867,7 @@ def backtest_concurrent(coins_data: dict,
                 balance = max(0.0, balance + pnl_usd)
                 entry   = trade['entry']
                 stype   = trade['stype']
+                rev_count = trade.get('rev_count', 0)
                 all_trades.append({
                     'symbol'    : sym,
                     'type'      : stype,
@@ -1881,10 +1882,35 @@ def backtest_concurrent(coins_data: dict,
                     'balance'   : round(balance, 4),
                     'dist'      : trade['dist'],
                     'slot_skip' : False,
+                    'rev_count' : rev_count,
                 })
-                active_slots.discard(sym)
-                state['done_bos'] = trade.get('done_key')
-                state['trade']    = None
+                if outcome == 'sl' and rev_count < 2:
+                    # Buka reverse trade — slot tetap aktif
+                    rev_stype  = 'Short' if stype == 'Long' else 'Long'
+                    rev_entry  = exit_p
+                    rev_dist   = trade['dist']
+                    rev_sl     = rev_entry + rev_dist if rev_stype == 'Short' else rev_entry - rev_dist
+                    rev_tp     = rev_entry - 1000 * rev_dist if rev_stype == 'Short' else rev_entry + 1000 * rev_dist
+                    state['trade'] = {
+                        'entry'         : rev_entry,
+                        'sl_orig'       : rev_sl,
+                        'trail_sl'      : rev_sl,
+                        'peak'          : rev_entry,
+                        'tp'            : rev_tp,
+                        'dist'          : rev_dist,
+                        'd_trail'       : rev_dist,
+                        'stype'         : rev_stype,
+                        'entry_ts'      : ts,
+                        'done_key'      : trade.get('done_key'),
+                        'trail_no_move' : 0,
+                        'trail_prev_sl' : rev_sl,
+                        'rev_count'     : rev_count + 1,
+                    }
+                    # Slot tetap di active_slots (tidak discard)
+                else:
+                    active_slots.discard(sym)
+                    state['done_bos'] = trade.get('done_key')
+                    state['trade']    = None
 
         # ── 2. Pending setup handling ─────────────────────────────────────
         elif state['pending'] is not None:
