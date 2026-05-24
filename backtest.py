@@ -1684,21 +1684,13 @@ def _bt_conc_detect_bos(state: dict, active_slots: set) -> None:
     c1_h   = float(chosen['c1_high'])
     c1_mid = (c1_h + c1_l) / 2.0
     gap_s  = float(chosen['top']) - float(chosen['bottom'])
-
-    # SL di 75% dari entry (c1_close) ke extreme candle C1
-    if stype == 'Long':
-        dist = 0.75 * (c1_c - c1_l)   # 75% jarak dari close ke low
-    else:
-        dist = 0.75 * (c1_h - c1_c)   # 75% jarak dari close ke high
+    dist   = abs(c1_c - c1_mid)
 
     if dist < c1_c * MIN_DIST_PCT:
         return
 
-    # d_trail = dist (sama dengan SL distance)
-    d_trail = dist
-
-    # SL level default: c1_c ± dist
-    sl_pending = c1_c - dist if stype == 'Long' else c1_c + dist
+    d_trail    = dist
+    sl_pending = c1_c - dist if stype == 'Long' else c1_c + dist  # = c1_mid
 
     # OCL flip check: BOS sama + OCL sama → entry dibalik (zone sudah ditest, kekuatan berbalik)
     done       = state['done_bos']
@@ -1752,7 +1744,7 @@ def _bt_conc_update_trade(trade: dict, h: float, l: float, c: float,
         if stype == 'Long':
             if h > peak:
                 peak = h; trade['peak'] = peak
-                if peak >= entry + d_trail:
+                if peak >= entry + 1.5 * dist:
                     new_tsl = max(entry, peak - TRAIL_STOP * d_trail)
                     if new_tsl > trail_sl:
                         trail_sl = new_tsl; trade['trail_sl'] = trail_sl
@@ -1766,7 +1758,7 @@ def _bt_conc_update_trade(trade: dict, h: float, l: float, c: float,
         else:  # Short
             if l < peak:
                 peak = l; trade['peak'] = peak
-                if peak <= entry - d_trail:
+                if peak <= entry - 1.5 * dist:
                     new_tsl = min(entry, peak + TRAIL_STOP * d_trail)
                     if new_tsl < trail_sl:
                         trail_sl = new_tsl; trade['trail_sl'] = trail_sl
