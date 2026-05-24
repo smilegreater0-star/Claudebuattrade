@@ -530,11 +530,15 @@ def _run():
             loss_rr = [r for t in concurrent_trades if t['outcome'] != 'tp'  and (r := _rr(t)) is not None]
             avg_win  = sum(win_rr)  / len(win_rr)  if win_rr  else 0.0
             avg_loss = sum(loss_rr) / len(loss_rr) if loss_rr else 0.0
+            total_fees = sum(t.get('fee_usd', 0.0) for t in concurrent_trades)
+            gross_pnl  = cpnl + total_fees
 
             _log_msg(f"TOTAL: {total_n} trade | WR:{wr:.1f}% | "
                      f"AvgWin:{avg_win:.2f}R | AvgLoss:{avg_loss:.2f}R | "
                      f"Compound: ${INITIAL_BALANCE:.2f} → ${concurrent_final:.2f} "
                      f"(+${cpnl:.2f}, +{cpnl/INITIAL_BALANCE*100:.0f}% ROI)")
+            _log_msg(f"Fee total: ${total_fees:.4f} | Gross (sebelum fee): ${gross_pnl:.4f} | "
+                     f"Fee per trade avg: ${total_fees/total_n:.6f}")
 
             # Per-coin breakdown
             from collections import defaultdict

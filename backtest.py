@@ -1739,6 +1739,8 @@ def _bt_conc_update_trade(trade: dict, h: float, l: float, c: float,
     sl_orig  = trade['sl_orig']
     tp       = trade['tp']
     risk_usd = balance * RISK_PCT
+    # fee = 2×taker (open+close) — diambil dari entry time agar tetap saat balance berubah
+    fee      = trade.get('fee_usd', 2 * TAKER_FEE * entry * risk_usd / dist if dist > 0 else 0.0)
 
     if TRAIL_STOP > 0:
         if stype == 'Long':
@@ -1751,10 +1753,10 @@ def _bt_conc_update_trade(trade: dict, h: float, l: float, c: float,
             cur_sl = trail_sl
             if l <= cur_sl:
                 r = (cur_sl - entry) / dist
-                return ('tp' if cur_sl > entry else 'sl'), cur_sl, ts, r * risk_usd
+                return ('tp' if cur_sl > entry else 'sl'), cur_sl, ts, r * risk_usd - fee
             if h >= tp:
                 r = (tp - entry) / dist
-                return 'tp', tp, ts, r * risk_usd
+                return 'tp', tp, ts, r * risk_usd - fee
         else:  # Short
             if l < peak:
                 peak = l; trade['peak'] = peak
@@ -1765,21 +1767,21 @@ def _bt_conc_update_trade(trade: dict, h: float, l: float, c: float,
             cur_sl = trail_sl
             if h >= cur_sl:
                 r = (entry - cur_sl) / dist
-                return ('tp' if cur_sl < entry else 'sl'), cur_sl, ts, r * risk_usd
+                return ('tp' if cur_sl < entry else 'sl'), cur_sl, ts, r * risk_usd - fee
             if l <= tp:
                 r = (entry - tp) / dist
-                return 'tp', tp, ts, r * risk_usd
+                return 'tp', tp, ts, r * risk_usd - fee
     else:
         if stype == 'Long':
-            if l <= sl_orig: return 'sl', sl_orig, ts, -risk_usd
+            if l <= sl_orig: return 'sl', sl_orig, ts, -risk_usd - fee
             if h >= tp:
                 r = (tp - entry) / dist
-                return 'tp', tp, ts, r * risk_usd
+                return 'tp', tp, ts, r * risk_usd - fee
         else:
-            if h >= sl_orig: return 'sl', sl_orig, ts, -risk_usd
+            if h >= sl_orig: return 'sl', sl_orig, ts, -risk_usd - fee
             if l <= tp:
                 r = (entry - tp) / dist
-                return 'tp', tp, ts, r * risk_usd
+                return 'tp', tp, ts, r * risk_usd - fee
 
     # Trail timeout
     if TRAIL_STOP > 0:
@@ -1790,7 +1792,7 @@ def _bt_conc_update_trade(trade: dict, h: float, l: float, c: float,
             trade['trail_no_move'] = trade.get('trail_no_move', 0) + 1
         if trade['trail_no_move'] >= TRAIL_TIMEOUT_C:
             r = (c - entry) / dist if stype == 'Long' else (entry - c) / dist
-            return 'timeout', c, ts, r * risk_usd
+            return 'timeout', c, ts, r * risk_usd - fee
 
     return None
 
@@ -1889,6 +1891,7 @@ def backtest_concurrent(coins_data: dict,
                     'exit_price': round(exit_p, 8),
                     'outcome'   : outcome,
                     'pnl_usd'   : round(pnl_usd, 4),
+                    'fee_usd'   : round(trade.get('fee_usd', 0.0), 6),
                     'balance'   : round(balance, 4),
                     'dist'      : trade['dist'],
                     'slot_skip' : False,
@@ -1901,6 +1904,7 @@ def backtest_concurrent(coins_data: dict,
                     rev_dist   = trade['dist']
                     rev_sl     = rev_entry + rev_dist if rev_stype == 'Short' else rev_entry - rev_dist
                     rev_tp     = rev_entry - 1000 * rev_dist if rev_stype == 'Short' else rev_entry + 1000 * rev_dist
+                    _rev_fee   = 2 * TAKER_FEE * rev_entry * (balance * RISK_PCT) / rev_dist if rev_dist > 0 else 0.0
                     state['trade'] = {
                         'entry'         : rev_entry,
                         'sl_orig'       : rev_sl,
@@ -1916,6 +1920,7 @@ def backtest_concurrent(coins_data: dict,
                         'trail_prev_sl' : rev_sl,
                         'rev_count'     : rev_count + 1,
                         'orig_ocl'      : trade.get('orig_ocl', trade['entry']),
+                        'fee_usd'       : _rev_fee,
                     }
                     # Slot tetap di active_slots (tidak discard)
                 else:
@@ -1966,6 +1971,7 @@ def backtest_concurrent(coins_data: dict,
                     d_trail = pending.get('d_trail', dist)
                     sl_nat  = pending['sl']
                     tp_nat  = entry + 1000 * d if stype == 'Long' else entry - 1000 * d
+                    _fee    = 2 * TAKER_FEE * entry * (balance * RISK_PCT) / d if d > 0 else 0.0
                     state['trade'] = {
                         'entry'         : entry,
                         'sl_orig'       : sl_nat,
@@ -1980,6 +1986,7 @@ def backtest_concurrent(coins_data: dict,
                         'trail_no_move' : 0,
                         'trail_prev_sl' : sl_nat,
                         'orig_ocl'      : entry,   # OCL asli untuk perbandingan re-entry
+                        'fee_usd'       : _fee,
                     }
                     state['done_bos'] = pending['bos_key']
                     state['pending']  = None
