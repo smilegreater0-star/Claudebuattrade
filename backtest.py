@@ -1684,18 +1684,25 @@ def _bt_conc_detect_bos(state: dict, active_slots: set) -> None:
     c1_h   = float(chosen['c1_high'])
     c1_mid = (c1_h + c1_l) / 2.0
     gap_s  = float(chosen['top']) - float(chosen['bottom'])
-    dist   = abs(c1_c - c1_mid)
+
+    # SL di 75% dari entry (c1_close) ke extreme candle C1
+    if stype == 'Long':
+        dist = 0.75 * (c1_c - c1_l)   # 75% jarak dari close ke low
+    else:
+        dist = 0.75 * (c1_h - c1_c)   # 75% jarak dari close ke high
 
     if dist < c1_c * MIN_DIST_PCT:
         return
 
-    # d_trail: c1_mid based (sama dengan dist SL)
+    # d_trail = dist (sama dengan SL distance)
     d_trail = dist
+
+    # SL level default: c1_c ± dist
+    sl_pending = c1_c - dist if stype == 'Long' else c1_c + dist
 
     # OCL flip check: BOS sama + OCL sama → entry dibalik (zone sudah ditest, kekuatan berbalik)
     done       = state['done_bos']
     stype_eff  = stype
-    sl_pending = c1_mid    # default: sl = c1_mid (arah original)
     choch_eff  = choch_level
     if done is not None and done.get('bos_key') == bos_key:
         used_ocl = done.get('used_ocl', 0)

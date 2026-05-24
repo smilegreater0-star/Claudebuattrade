@@ -524,20 +524,32 @@ def _run():
 
             # Per-coin breakdown
             from collections import defaultdict
-            coin_stats = defaultdict(lambda: {'n': 0, 'w': 0, 'pnl': 0})
+            coin_stats = defaultdict(lambda: {'n': 0, 'w': 0, 'pnl': 0, 'rr': []})
             for t in concurrent_trades:
                 s = coin_stats[t['symbol']]
                 s['n']   += 1
                 s['w']   += 1 if t['outcome'] == 'tp' else 0
                 s['pnl'] += t['pnl_usd']
+                dist_t = t.get('dist', 0)
+                if dist_t > 0:
+                    stype_t = t.get('type', 'Long')
+                    if stype_t == 'Long':
+                        r_val = (t['exit_price'] - t['entry']) / dist_t
+                    else:
+                        r_val = (t['entry'] - t['exit_price']) / dist_t
+                    s['rr'].append(r_val)
             _log_msg("\nPer-coin (trade efektif setelah slot filter):")
             for sym in COINS:
                 s = coin_stats.get(sym)
                 if not s or s['n'] == 0:
                     _log_msg(f"  {sym:<20} — tidak ada trade")
                 else:
-                    wr_c = s['w'] / s['n'] * 100
-                    _log_msg(f"  {sym:<20} {s['n']:>4} trade | WR:{wr_c:.0f}% | PnL:${s['pnl']:.2f}")
+                    wr_c   = s['w'] / s['n'] * 100
+                    rr_all = s['rr']
+                    avg_rr = sum(rr_all) / len(rr_all) if rr_all else 0.0
+                    rr_str = f"AvgRR:{avg_rr:.2f}:1" if rr_all else "AvgRR:—"
+                    _log_msg(f"  {sym:<20} {s['n']:>4} trade | WR:{wr_c:.0f}% | "
+                             f"PnL:${s['pnl']:.2f} | {rr_str}")
 
         with _lock:
             _phase = 'done'
