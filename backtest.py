@@ -275,7 +275,7 @@ def _gap_vol_fields(df, c3_idx):
     if not has_vol:
         return {**base, 'c3_vol': 0.0, 'vol_max10h': 0.0}
     c3_vol    = float(df['vol'].iloc[c3_idx])
-    avg_start = max(0, c3_idx - 10)
+    avg_start = max(0, c3_idx - 5)
     vol_max   = float(df['vol'].iloc[avg_start:c3_idx].max()) if c3_idx > 0 else 0.0
     return {**base, 'c3_vol': c3_vol, 'vol_max10h': vol_max}
 
