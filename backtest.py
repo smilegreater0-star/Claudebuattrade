@@ -1587,7 +1587,17 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
 # CONCURRENT MULTI-COIN BACKTEST
 # ============================================================
 
-def _bt_conc_detect_bos(state: dict, active_slots: set) -> None:
+def _diag_month(monthly_diag: dict, ts_s, key: str, n: int = 1) -> None:
+    """Tambah n ke monthly_diag[(year,month)][key] berdasarkan unix-seconds ts."""
+    dt = pd.Timestamp(ts_s, unit='s')
+    k  = (dt.year, dt.month)
+    if k not in monthly_diag:
+        monthly_diag[k] = {'setup': 0, 'choch': 0, 'slot_ok': 0, 'slot_blocked': 0}
+    monthly_diag[k][key] += n
+
+
+def _bt_conc_detect_bos(state: dict, active_slots: set,
+                         ts_ms: int = 0, monthly_diag: dict = None) -> None:
     """
     Deteksi BOS H1 dari rolling state. Update state['pending'] jika BOS baru ditemukan.
     Dipanggil setiap kali H1 close saat coin tidak punya active trade.
@@ -1705,6 +1715,9 @@ def _bt_conc_detect_bos(state: dict, active_slots: set) -> None:
     if existing and existing.get('phase') == 'WAIT_FILL':
         active_slots.discard(state['sym'])
 
+    if monthly_diag is not None and ts_ms:
+        _diag_month(monthly_diag, ts_ms, 'setup')
+
     state['pending'] = {
         'bos_key'     : bos_key,
         'phase'       : 'WAIT_APPROACH',
@@ -1802,16 +1815,17 @@ def backtest_concurrent(coins_data: dict,
     (maks max_concurrent posisi + WAIT_FILL order sekaligus).
 
     coins_data: {symbol: df_m5}   — df sudah di-filter rentang waktu
-    Returns: (all_trades, final_balance)
+    Returns: (all_trades, final_balance, monthly_diag)
     """
     import heapq
 
     WARMUP = 2400    # 200 jam warmup per coin (identik backtest_coin)
     H1_WIN = 100     # 100 H1 dalam rolling window
 
-    balance     = initial_balance
-    all_trades  = []
+    balance      = initial_balance
+    all_trades   = []
     active_slots = set()    # symbols yang sedang WAIT_FILL atau active trade
+    monthly_diag = {}       # {(yr,mo): {setup, choch, slot_ok, slot_blocked}}
 
     # ── Init per-coin state ───────────────────────────────────────────────
     states = {}
@@ -1944,6 +1958,7 @@ def backtest_concurrent(coins_data: dict,
                 active_slots.discard(sym)
                 state['pending']  = None
                 state['done_bos'] = None   # structure reset → BOS baru bisa detect
+                _diag_month(monthly_diag, ts_ms_ev, 'choch')
 
             elif pending['phase'] == 'WAIT_APPROACH':
                 thr = APPROACH_R * dist
@@ -1952,6 +1967,13 @@ def backtest_concurrent(coins_data: dict,
                     if len(active_slots) < max_concurrent:
                         pending['phase'] = 'WAIT_FILL'
                         active_slots.add(sym)
+                        if not pending.get('_slot_ok_counted'):
+                            pending['_slot_ok_counted'] = True
+                            _diag_month(monthly_diag, ts_ms_ev, 'slot_ok')
+                    else:
+                        if not pending.get('_slot_blocked_counted'):
+                            pending['_slot_blocked_counted'] = True
+                            _diag_month(monthly_diag, ts_ms_ev, 'slot_blocked')
 
             elif pending['phase'] == 'WAIT_FILL':
                 thr = APPROACH_R * dist
@@ -2029,14 +2051,14 @@ def backtest_concurrent(coins_data: dict,
                 if len(state['h1_completed']) > H1_WIN:
                     state['h1_completed'] = state['h1_completed'][-H1_WIN:]
                 if len(state['h1_completed']) >= 20:
-                    _bt_conc_detect_bos(state, active_slots)
+                    _bt_conc_detect_bos(state, active_slots, ts_ms_ev, monthly_diag)
 
         # ── Push candle berikutnya untuk coin ini ──────────────────────
         nxt = idx + 1
         if nxt < state['total']:
             heapq.heappush(heap, (int(state['df']['ts_ms'].iloc[nxt]), nxt, sym))
 
-    return all_trades, balance
+    return all_trades, balance, monthly_diag
 
 
 # ============================================================

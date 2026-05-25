@@ -508,7 +508,7 @@ def _run():
                 _log_msg(f"   ❌ {symbol}: {e}")
 
         _log_msg(f"\n🔄 Concurrent backtest: {len(coins_data)} coin, max {bt.MAX_CONCURRENT} slot...")
-        concurrent_trades, concurrent_final = bt.backtest_concurrent(
+        concurrent_trades, concurrent_final, monthly_diag_bt = bt.backtest_concurrent(
             coins_data, initial_balance=INITIAL_BALANCE, max_concurrent=bt.MAX_CONCURRENT)
 
         if not concurrent_trades:
@@ -585,14 +585,20 @@ def _run():
                 r = _rr(t)
                 if r is not None and t['outcome'] == 'tp':
                     m['win_rr'].append(r)
-            _log_msg("\nPer-bulan:")
+            _log_msg("\nPer-bulan (trade | WR | PnL | Setup=BOS+FVG | SlotOK | BlokSlot | CHOCH):")
             for (yr, mo) in sorted(monthly.keys()):
                 m    = monthly[(yr, mo)]
                 wr_m = m['w'] / m['n'] * 100 if m['n'] else 0
                 aw_m = sum(m['win_rr']) / len(m['win_rr']) if m['win_rr'] else 0.0
                 name = f"{calendar.month_abbr[mo]}-{yr}"
+                d    = monthly_diag_bt.get((yr, mo), {})
+                setup        = d.get('setup', 0)
+                slot_ok      = d.get('slot_ok', 0)
+                slot_blocked = d.get('slot_blocked', 0)
+                choch        = d.get('choch', 0)
                 _log_msg(f"  {name:<12} {m['n']:>4} trade | WR:{wr_m:.0f}% | "
-                         f"PnL:${m['pnl']:.2f} | AvgWin:{aw_m:.2f}R")
+                         f"PnL:${m['pnl']:.2f} | AvgWin:{aw_m:.2f}R | "
+                         f"Setup:{setup} SlotOK:{slot_ok} Blok:{slot_blocked} CHOCH:{choch}")
 
         with _lock:
             _phase = 'done'
