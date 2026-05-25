@@ -1790,7 +1790,7 @@ def _bt_conc_update_trade(trade: dict, h: float, l: float, c: float,
             # Baru update peak & trail dari HIGH (untuk candle berikutnya)
             if h > peak:
                 peak = h; trade['peak'] = peak
-                if peak >= entry + 1.25 * dist:
+                if peak >= entry + 1.0 * dist:
                     new_tsl = max(entry, peak - TRAIL_STOP * d_trail)
                     if new_tsl > trail_sl:
                         trail_sl = new_tsl; trade['trail_sl'] = trail_sl
@@ -1805,7 +1805,7 @@ def _bt_conc_update_trade(trade: dict, h: float, l: float, c: float,
             # Baru update peak & trail dari LOW (untuk candle berikutnya)
             if l < peak:
                 peak = l; trade['peak'] = peak
-                if peak <= entry - 1.25 * dist:
+                if peak <= entry - 1.0 * dist:
                     new_tsl = min(entry, peak + TRAIL_STOP * d_trail)
                     if new_tsl < trail_sl:
                         trail_sl = new_tsl; trade['trail_sl'] = trail_sl
