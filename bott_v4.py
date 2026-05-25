@@ -1315,16 +1315,15 @@ def run_bot():
                     c1_h   = float(chosen_fvg['c1_high'])
                     gap_s  = float(chosen_fvg['top']) - float(chosen_fvg['bottom'])
 
-                    # Entry di OCL (c1_close), SL di c1_mid
-                    c1_mid = (c1_h + c1_l) / 2.0
+                    # Entry di OCL (c1_close), SL di 76% range c1 dari OCL ke ujung
                     if stype == 'Long':
                         entry_adj = c1_c
-                        sl_entry  = c1_mid
-                        dist      = entry_adj - sl_entry
+                        dist      = 0.76 * max(c1_c - c1_l, 0.0)
+                        sl_entry  = c1_c - dist
                     else:
                         entry_adj = c1_c
-                        sl_entry  = c1_mid
-                        dist      = sl_entry - entry_adj
+                        dist      = 0.76 * max(c1_h - c1_c, 0.0)
+                        sl_entry  = c1_c + dist
 
                     if dist < c1_c * 0.002:
                         continue  # SL terlalu dekat entry
