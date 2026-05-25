@@ -706,13 +706,13 @@ def check_trailing_sl(coin):
         side  = p['side']
 
         # Pasang trailing stop via set_trading_stop saat pertama posisi terdeteksi
-        # activePrice = entry + 1.25×dist → trail aktif setelah +1.25R profit (sinkron backtest)
+        # activePrice = entry + 1.0×dist → trail aktif setelah +1.0R profit (sinkron backtest)
         if TRAIL_STOP > 0 and dist > 0 and not p.get('trail_set', False):
             trail_dist = p.get('trail_dist', TRAIL_STOP * dist)
             info       = get_instrument_info(coin)
             tick       = info.get('tick_size', 0.0001)
             trail_r    = round_price(trail_dist, tick)
-            active_p   = round_price(entry + 1.25 * dist if side == "Buy" else entry - 1.25 * dist, tick)
+            active_p   = round_price(entry + 1.0 * dist if side == "Buy" else entry - 1.0 * dist, tick)
             if trail_r > 0 and active_p > 0:
                 try:
                     res_ts = session.set_trading_stop(
@@ -724,7 +724,7 @@ def check_trailing_sl(coin):
                     if res_ts['retCode'] == 0:
                         active_positions[coin]['trail_set'] = True
                         print(f"📍 {coin}: Trailing stop {trail_r} dipasang "
-                              f"(aktif @ {active_p} = entry+1.25R)")
+                              f"(aktif @ {active_p} = entry+1.0R)")
                     else:
                         print(f"⚠️ {coin}: Gagal set trailing stop: "
                               f"{res_ts.get('retMsg','')} (code:{res_ts['retCode']})")
@@ -732,12 +732,12 @@ def check_trailing_sl(coin):
                     print(f"⚠️ {coin}: set_trading_stop error: {e}")
 
         if dist > 0 and not p.get('trail_engaged', False):
-            if side == "Buy"  and curr_price >= entry + 1.25 * dist:
+            if side == "Buy"  and curr_price >= entry + 1.0 * dist:
                 active_positions[coin]['trail_engaged'] = True
-                print(f"✅ {coin}: Trail engaged @ {curr_price:.6f} (+1.25R)")
-            elif side == "Sell" and curr_price <= entry - 1.25 * dist:
+                print(f"✅ {coin}: Trail engaged @ {curr_price:.6f} (+1.0R)")
+            elif side == "Sell" and curr_price <= entry - 1.0 * dist:
                 active_positions[coin]['trail_engaged'] = True
-                print(f"✅ {coin}: Trail engaged @ {curr_price:.6f} (+1.25R)")
+                print(f"✅ {coin}: Trail engaged @ {curr_price:.6f} (+1.0R)")
     except Exception:
         pass
 
@@ -1469,7 +1469,7 @@ def run_bot():
 
                     choch_str = f"{choch_eff:.6g}" if choch_eff else "—"
                     print(f"\n📊 {coin} | BOS {stype_eff} | OCL:{c1_c:.6f} "
-                          f"Entry:{entry_adj:.6f} SL(c1_mid):{sl_entry:.6f} "
+                          f"Entry:{entry_adj:.6f} SL(76%):{sl_entry:.6f} "
                           f"dist:{dist/c1_c*100:.3f}% | GapPct:{gap_s/c1_c*100:.3f}% | CHOCH:{choch_str}")
 
                     # Simpan sebagai WAIT_APPROACH — order belum dipasang, belum pakai margin

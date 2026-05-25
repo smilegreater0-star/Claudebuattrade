@@ -1752,7 +1752,7 @@ def _bt_conc_detect_bos(state: dict, active_slots: set,
         'phase'       : 'WAIT_APPROACH',
         'entry'       : c1_c,           # OCL = entry limit
         'ocl'         : c1_c,
-        'sl'          : sl_pending,     # c1_mid
+        'sl'          : sl_pending,     # 76% range c1 dari OCL
         'dist'        : dist,
         'd_trail'     : d_trail,
         'stype'       : stype_eff,
