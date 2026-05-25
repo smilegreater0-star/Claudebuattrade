@@ -552,30 +552,34 @@ def simulate_trade(df_m5, entry_idx, entry, sl, tp, stype, balance,
             adv = h - entry
             if adv > max_float:
                 max_float = adv
+            cur_sl = trail_sl if TRAIL_STOP > 0 else sl
+            # Cek L vs trail_sl LAMA dulu (konservatif: L sebelum H dalam candle)
+            if l <= cur_sl:
+                exit_p = cur_sl; exit_ts = c['ts']; outcome = 'sl'; break
+            # Baru update peak & trail dari H (untuk candle berikutnya)
             if TRAIL_STOP > 0 and h > peak:
                 peak = h
-                if peak >= entry + _td:           # trail aktif setelah +1 trail-R profit
+                if peak >= entry + _td:
                     new_tsl  = max(entry, peak - TRAIL_STOP * _td)
                     trail_sl = max(trail_sl, new_tsl)
                     trail_engaged = True
-            cur_sl = trail_sl if TRAIL_STOP > 0 else sl
-            if l <= cur_sl:
-                exit_p = cur_sl; exit_ts = c['ts']; outcome = 'sl'; break
             if h >= tp:
                 exit_p = tp;    exit_ts = c['ts']; outcome = 'tp'; break
         else:
             adv = entry - l
             if adv > max_float:
                 max_float = adv
+            cur_sl = trail_sl if TRAIL_STOP > 0 else sl
+            # Cek H vs trail_sl LAMA dulu (konservatif: H sebelum L dalam candle)
+            if h >= cur_sl:
+                exit_p = cur_sl; exit_ts = c['ts']; outcome = 'sl'; break
+            # Baru update peak & trail dari L (untuk candle berikutnya)
             if TRAIL_STOP > 0 and l < peak:
                 peak = l
-                if peak <= entry - _td:           # trail aktif setelah -1 trail-R profit
+                if peak <= entry - _td:
                     new_tsl  = min(entry, peak + TRAIL_STOP * _td)
                     trail_sl = min(trail_sl, new_tsl)
                     trail_engaged = True
-            cur_sl = trail_sl if TRAIL_STOP > 0 else sl
-            if h >= cur_sl:
-                exit_p = cur_sl; exit_ts = c['ts']; outcome = 'sl'; break
             if l <= tp:
                 exit_p = tp;    exit_ts = c['ts']; outcome = 'tp'; break
         # Trail timeout: keluar jika trailing SL tidak bergerak selama 24 jam
@@ -1777,30 +1781,32 @@ def _bt_conc_update_trade(trade: dict, h: float, l: float, c: float,
 
     if TRAIL_STOP > 0:
         if stype == 'Long':
+            # Cek LOW vs trail_sl LAMA dulu (konservatif: L sebelum H dalam candle)
+            if l <= trail_sl:
+                r = (trail_sl - entry) / dist
+                return ('tp' if trail_sl > entry else 'sl'), trail_sl, ts, r * risk_usd - fee
+            # Baru update peak & trail dari HIGH (untuk candle berikutnya)
             if h > peak:
                 peak = h; trade['peak'] = peak
                 if peak >= entry + 1.25 * dist:
                     new_tsl = max(entry, peak - TRAIL_STOP * d_trail)
                     if new_tsl > trail_sl:
                         trail_sl = new_tsl; trade['trail_sl'] = trail_sl
-            cur_sl = trail_sl
-            if l <= cur_sl:
-                r = (cur_sl - entry) / dist
-                return ('tp' if cur_sl > entry else 'sl'), cur_sl, ts, r * risk_usd - fee
             if h >= tp:
                 r = (tp - entry) / dist
                 return 'tp', tp, ts, r * risk_usd - fee
         else:  # Short
+            # Cek HIGH vs trail_sl LAMA dulu (konservatif: H sebelum L dalam candle)
+            if h >= trail_sl:
+                r = (entry - trail_sl) / dist
+                return ('tp' if trail_sl < entry else 'sl'), trail_sl, ts, r * risk_usd - fee
+            # Baru update peak & trail dari LOW (untuk candle berikutnya)
             if l < peak:
                 peak = l; trade['peak'] = peak
                 if peak <= entry - 1.25 * dist:
                     new_tsl = min(entry, peak + TRAIL_STOP * d_trail)
                     if new_tsl < trail_sl:
                         trail_sl = new_tsl; trade['trail_sl'] = trail_sl
-            cur_sl = trail_sl
-            if h >= cur_sl:
-                r = (entry - cur_sl) / dist
-                return ('tp' if cur_sl < entry else 'sl'), cur_sl, ts, r * risk_usd - fee
             if l <= tp:
                 r = (entry - tp) / dist
                 return 'tp', tp, ts, r * risk_usd - fee
