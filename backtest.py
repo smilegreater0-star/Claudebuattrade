@@ -1066,20 +1066,21 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
             if gap_size <= 0 or c1_close <= 0:
                 c_dir_fail += 1; i += 12; continue
 
-            c1_mid = (c1_high + c1_low) / 2.0  # SL di 50% range C1
-
+            # Entry 25% dari OCL, SL 50% dari OCL (dist = 25% c1 range = 1R)
             if stype == "Long":
-                entry_limit = c1_close
-                sl_nat      = c1_mid
+                c1_range    = max(c1_close - c1_low, c1_close * MIN_DIST_PCT * 2)
+                d           = c1_range * 0.25
+                entry_limit = c1_close - d        # 25% di bawah OCL
+                sl_nat      = c1_close - d * 2    # 50% di bawah OCL
                 if entry_limit <= sl_nat: c_dir_fail += 1; i += 12; continue
-                d       = entry_limit - sl_nat
-                d_trail = d   # trail ref = c1_mid (sama dengan dist SL)
+                d_trail     = d
             else:
-                entry_limit = c1_close
-                sl_nat      = c1_mid
+                c1_range    = max(c1_high - c1_close, c1_close * MIN_DIST_PCT * 2)
+                d           = c1_range * 0.25
+                entry_limit = c1_close + d        # 25% di atas OCL
+                sl_nat      = c1_close + d * 2    # 50% di atas OCL
                 if sl_nat <= entry_limit: c_dir_fail += 1; i += 12; continue
-                d       = sl_nat - entry_limit
-                d_trail = d   # trail ref = c1_mid (sama dengan dist SL)
+                d_trail     = d
 
             if d <= 0 or d < entry_limit * MIN_DIST_PCT:
                 c_dir_fail += 1; i += 12; continue
@@ -1688,15 +1689,29 @@ def _bt_conc_detect_bos(state: dict, active_slots: set,
     c1_c   = float(chosen['c1_close'])
     c1_l   = float(chosen['c1_low'])
     c1_h   = float(chosen['c1_high'])
-    c1_mid = (c1_h + c1_l) / 2.0
     gap_s  = float(chosen['top']) - float(chosen['bottom'])
-    dist   = abs(c1_c - c1_mid)
+
+    # Entry di 25% dari OCL masuk ke dalam c1, SL di 50% dari OCL
+    # dist = 25% × c1_range (setengah dari jarak OCL ke c1_mid sebelumnya)
+    if stype == 'Long':
+        c1_range = max(c1_c - c1_l, c1_c * MIN_DIST_PCT * 2)
+    else:
+        c1_range = max(c1_h - c1_c, c1_c * MIN_DIST_PCT * 2)
+    dist = c1_range * 0.25  # 1R = 25% range
 
     if dist < c1_c * MIN_DIST_PCT:
         return
 
-    d_trail    = dist
-    sl_pending = c1_c - dist if stype == 'Long' else c1_c + dist  # = c1_mid
+    # entry = OCL − 25% range (Long) / OCL + 25% range (Short)
+    # sl    = OCL − 50% range (Long) / OCL + 50% range (Short)
+    if stype == 'Long':
+        entry_adj  = c1_c - dist
+        sl_pending = c1_c - dist * 2
+    else:
+        entry_adj  = c1_c + dist
+        sl_pending = c1_c + dist * 2
+
+    d_trail = dist
 
     # OCL flip check: BOS sama + OCL sama → entry dibalik (zone sudah ditest, kekuatan berbalik)
     done       = state['done_bos']
@@ -1706,10 +1721,15 @@ def _bt_conc_detect_bos(state: dict, active_slots: set,
         used_ocl = done.get('used_ocl', 0)
         if used_ocl > 0 and c1_c > 0 and abs(c1_c - used_ocl) / c1_c < 0.001:
             # OCL sama → flip direction
-            stype_eff  = 'Short' if stype == 'Long' else 'Long'
-            sl_pending = c1_c + dist if stype_eff == 'Short' else c1_c - dist
+            stype_eff = 'Short' if stype == 'Long' else 'Long'
+            if stype_eff == 'Short':
+                entry_adj  = c1_c + dist
+                sl_pending = c1_c + dist * 2
+            else:
+                entry_adj  = c1_c - dist
+                sl_pending = c1_c - dist * 2
             choch_eff  = None   # CHOCH original tidak valid untuk arah terbalik
-        # else: OCL beda (FVG fresh) → direction tetap, sl tetap c1_mid
+        # else: OCL beda (FVG fresh) → direction tetap
 
     # Jika ada pending berbeda → override (lepas slot lama jika WAIT_FILL)
     if existing and existing.get('phase') == 'WAIT_FILL':
@@ -1721,7 +1741,8 @@ def _bt_conc_detect_bos(state: dict, active_slots: set,
     state['pending'] = {
         'bos_key'     : bos_key,
         'phase'       : 'WAIT_APPROACH',
-        'entry'       : c1_c,
+        'entry'       : entry_adj,
+        'ocl'         : c1_c,      # OCL asli untuk flip check & done_bos
         'sl'          : sl_pending,
         'dist'        : dist,
         'd_trail'     : d_trail,
@@ -1755,7 +1776,7 @@ def _bt_conc_update_trade(trade: dict, h: float, l: float, c: float,
         if stype == 'Long':
             if h > peak:
                 peak = h; trade['peak'] = peak
-                if peak >= entry + 1.25 * dist:
+                if peak >= entry + 2.0 * dist:
                     new_tsl = max(entry, peak - TRAIL_STOP * d_trail)
                     if new_tsl > trail_sl:
                         trail_sl = new_tsl; trade['trail_sl'] = trail_sl
@@ -1769,7 +1790,7 @@ def _bt_conc_update_trade(trade: dict, h: float, l: float, c: float,
         else:  # Short
             if l < peak:
                 peak = l; trade['peak'] = peak
-                if peak <= entry - 1.25 * dist:
+                if peak <= entry - 2.0 * dist:
                     new_tsl = min(entry, peak + TRAIL_STOP * d_trail)
                     if new_tsl < trail_sl:
                         trail_sl = new_tsl; trade['trail_sl'] = trail_sl
@@ -2003,7 +2024,7 @@ def backtest_concurrent(coins_data: dict,
                         'done_key'      : pending['bos_key'],
                         'trail_no_move' : 0,
                         'trail_prev_sl' : sl_nat,
-                        'orig_ocl'      : entry,   # OCL asli untuk perbandingan re-entry
+                        'orig_ocl'      : pending.get('ocl', entry),  # OCL asli (c1_close) bukan adjusted entry
                         'fee_usd'       : _fee,
                     }
                     state['done_bos'] = pending['bos_key']
