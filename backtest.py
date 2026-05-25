@@ -29,7 +29,7 @@ SL_MULT      = 6.2      # SL distance dari titik 0 (dalam R unit = FVG height)
 TP_MULT      = 2.0      # TP distance dari titik 0 (dalam R unit)
 ENTRY_R      = 8.0      # fvg_rev_limit: level limit entry dari titik 0 (dalam R)
 TIME_FILTER  = 0        # max candles FVG→MSS (0 = disabled)
-TRAIL_STOP   = 0.15     # trailing SL step dalam R — sinkron dengan bott_v4.py
+TRAIL_STOP   = 0.50     # trailing SL step dalam R — sinkron dengan bott_v4.py
 TOUCH_VOL_MIN = 0.8     # fvg_strong: touch candle vol min (× avg 20 M5 candle; 0 = no filter)
 MAX_GAP_PCT   = 0.006   # fvg_strong: max gap_size / entry_p — sinkron dengan bott_v4.py
 APPROACH_R    = 2.0     # fvg_limit: place order saat harga dalam 2R dari entry

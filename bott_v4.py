@@ -76,7 +76,7 @@ session = HTTP(testnet=TESTNET, api_key=API_KEY, api_secret=API_SECRET)
 
 # ── Strategy params (sinkron dengan backtest.py) ─────────────
 SL_MULT       = 6.2     # SL = SL_MULT × gap_size dari entry (fallback)
-TRAIL_STOP    = 0.15    # trailing distance = TRAIL_STOP × dist (tight trail = capture besar)
+TRAIL_STOP    = 0.50    # trailing distance = TRAIL_STOP × dist
 SBR_MODE      = True    # True = SBR entry di C1.close + SL di C1.low, False = OCL entry lama
 ENTRY_MODE    = 'fvg_limit'  # 'fvg_sbr' (market saat touch) | 'fvg_limit' (limit langsung di BOS)
 TOUCH_VOL_MIN = 0.8     # touch candle volume min (× avg 20 M5 candle) — hanya dipakai fvg_sbr
