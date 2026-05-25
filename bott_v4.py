@@ -517,6 +517,7 @@ def place_limit_order(symbol, side, entry_p, sl_p):
             category=CATEGORY, symbol=symbol, side=side,
             orderType="Limit", qty=str(qty),
             price=str(entry_r),
+            stopLoss=str(sl_r),
             positionIdx=0,
             timeInForce="GTC"
         )
@@ -1083,18 +1084,27 @@ def run_bot():
                             active_p = round_price(
                                 actual_entry + actual_dist if side_order == "Buy"
                                 else actual_entry - actual_dist, tick)
-                            try:
-                                params = dict(
-                                    category=CATEGORY, symbol=coin,
-                                    stopLoss=str(sl_r),
-                                    positionIdx=0
-                                )
-                                if trail_r > 0 and active_p > 0:
-                                    params['trailingStop'] = str(trail_r)
-                                    params['activePrice']  = str(active_p)
-                                session.set_trading_stop(**params)
-                            except Exception as e:
-                                print(f"⚠️ {coin}: set_trading_stop error: {e}")
+                            for _attempt in range(3):
+                                try:
+                                    params = dict(
+                                        category=CATEGORY, symbol=coin,
+                                        stopLoss=str(sl_r),
+                                        positionIdx=0
+                                    )
+                                    if trail_r > 0 and active_p > 0:
+                                        params['trailingStop'] = str(trail_r)
+                                        params['activePrice']  = str(active_p)
+                                    res_ts = session.set_trading_stop(**params)
+                                    if res_ts.get('retCode', -1) == 0:
+                                        print(f"🛡️  {coin}: SL={sl_r} Trail={trail_r} activePrice={active_p} dipasang")
+                                        break
+                                    else:
+                                        print(f"⚠️ {coin}: set_trading_stop gagal (attempt {_attempt+1}): "
+                                              f"{res_ts.get('retMsg','')} (code:{res_ts.get('retCode')})")
+                                        time.sleep(2)
+                                except Exception as e:
+                                    print(f"⚠️ {coin}: set_trading_stop error (attempt {_attempt+1}): {e}")
+                                    time.sleep(2)
                             active_positions[coin] = {
                                 'side'          : side_order,
                                 'entry'         : actual_entry,
@@ -1333,7 +1343,13 @@ def run_bot():
                     existing = pending.get(coin)
                     old_ocl = existing.get('orig_ocl', 0) if existing else 0
                     if existing and abs(c1_c - old_ocl) / max(c1_c, 1e-9) < 0.001 and existing.get('type') == stype:
-                        continue  # FVG sama, skip
+                        continue  # FVG sama di pending, skip
+                    # Cek done_setups: jangan re-entry di OCL yang baru saja selesai trade
+                    done = done_setups.get(coin)
+                    if done and done.get('stype') == stype:
+                        done_ocl = done.get('used_ocl', 0)
+                        if done_ocl > 0 and abs(c1_c - done_ocl) / max(c1_c, 1e-9) < 0.001:
+                            continue  # OCL sama dengan trade terakhir, skip
                     if existing and existing.get('order_id'):
                         cancel_order(coin, existing['order_id'])
                     pending[coin] = {
