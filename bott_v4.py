@@ -77,6 +77,7 @@ session = HTTP(testnet=TESTNET, api_key=API_KEY, api_secret=API_SECRET)
 # ── Strategy params (sinkron dengan backtest.py) ─────────────
 SL_MULT       = 6.2     # SL = SL_MULT × gap_size dari entry (fallback)
 TRAIL_STOP    = 0.50    # trailing distance = TRAIL_STOP × dist
+TRAIL_ACT_R   = 2.0     # trail aktif setelah +TRAIL_ACT_R (Bybit min > trailingStop)
 SBR_MODE      = True    # True = SBR entry di C1.close + SL di C1.low, False = OCL entry lama
 ENTRY_MODE    = 'fvg_limit'  # 'fvg_sbr' (market saat touch) | 'fvg_limit' (limit langsung di BOS)
 TOUCH_VOL_MIN = 0.8     # touch candle volume min (× avg 20 M5 candle) — hanya dipakai fvg_sbr
@@ -706,15 +707,15 @@ def check_trailing_sl(coin):
         side  = p['side']
 
         # Pasang trailing stop via set_trading_stop saat pertama posisi terdeteksi
-        # activePrice = entry + 1.0×dist → trail aktif setelah +1.0R profit (sinkron backtest)
+        # activePrice = entry + TRAIL_ACT_R×dist → trail aktif setelah +2R profit (sinkron backtest)
         if TRAIL_STOP > 0 and dist > 0 and not p.get('trail_set', False):
             trail_dist = p.get('trail_dist', TRAIL_STOP * dist)
             info       = get_instrument_info(coin)
             tick       = info.get('tick_size', 0.0001)
             trail_r    = round_price(trail_dist, tick)
-            active_p   = round_price(entry + 1.0 * dist if side == "Buy" else entry - 1.0 * dist, tick)
+            active_p   = round_price(entry + TRAIL_ACT_R * dist if side == "Buy" else entry - TRAIL_ACT_R * dist, tick)
             print(f"🔧 {coin}: Pasang trail: trailingStop={trail_r} activePrice={active_p} "
-                  f"(entry={entry:.6f} dist={dist:.6f} = {dist/entry*100:.3f}%)")
+                  f"(entry={entry:.6f} dist={dist:.6f} = {dist/entry*100:.3f}%, act={TRAIL_ACT_R}R)")
             if trail_r > 0 and active_p > 0:
                 try:
                     res_ts = session.set_trading_stop(
@@ -726,7 +727,7 @@ def check_trailing_sl(coin):
                     if res_ts['retCode'] == 0:
                         active_positions[coin]['trail_set'] = True
                         print(f"📍 {coin}: Trailing stop {trail_r} dipasang "
-                              f"(aktif @ {active_p} = entry+1.0R)")
+                              f"(aktif @ {active_p} = entry+{TRAIL_ACT_R}R)")
                     else:
                         print(f"⚠️ {coin}: Gagal set trailing stop: "
                               f"{res_ts.get('retMsg','')} (code:{res_ts['retCode']})")
@@ -734,12 +735,12 @@ def check_trailing_sl(coin):
                     print(f"⚠️ {coin}: set_trading_stop error: {e}")
 
         if dist > 0 and not p.get('trail_engaged', False):
-            if side == "Buy"  and curr_price >= entry + 1.0 * dist:
+            if side == "Buy"  and curr_price >= entry + TRAIL_ACT_R * dist:
                 active_positions[coin]['trail_engaged'] = True
-                print(f"✅ {coin}: Trail engaged @ {curr_price:.6f} (+1.0R)")
-            elif side == "Sell" and curr_price <= entry - 1.0 * dist:
+                print(f"✅ {coin}: Trail engaged @ {curr_price:.6f} (+{TRAIL_ACT_R}R)")
+            elif side == "Sell" and curr_price <= entry - TRAIL_ACT_R * dist:
                 active_positions[coin]['trail_engaged'] = True
-                print(f"✅ {coin}: Trail engaged @ {curr_price:.6f} (+1.0R)")
+                print(f"✅ {coin}: Trail engaged @ {curr_price:.6f} (+{TRAIL_ACT_R}R)")
     except Exception:
         pass
 
@@ -1084,8 +1085,8 @@ def run_bot():
                             sl_r    = round_price(sl_p, tick)
                             trail_r = round_price(trail_d, tick)
                             active_p = round_price(
-                                actual_entry + actual_dist if side_order == "Buy"
-                                else actual_entry - actual_dist, tick)
+                                actual_entry + TRAIL_ACT_R * actual_dist if side_order == "Buy"
+                                else actual_entry - TRAIL_ACT_R * actual_dist, tick)
                             trail_set_ok = False
                             for _attempt in range(3):
                                 try:
@@ -1101,7 +1102,7 @@ def run_bot():
                                     if res_ts.get('retCode', -1) == 0:
                                         trail_set_ok = True
                                         print(f"🛡️  {coin}: SL={sl_r} Trail={trail_r} "
-                                              f"activePrice={active_p} (+1R) dipasang")
+                                              f"activePrice={active_p} (+{TRAIL_ACT_R}R) dipasang")
                                         break
                                     else:
                                         print(f"⚠️ {coin}: set_trading_stop gagal (attempt {_attempt+1}): "
@@ -1134,7 +1135,7 @@ def run_bot():
                             }
                             del pending[coin]
                             print(f"✅ {coin}: Limit filled! Entry:{actual_entry:.6f} "
-                                  f"SL:{sl_p:.6f} Trail aktif setelah +1R")
+                                  f"SL:{sl_p:.6f} Trail aktif setelah +{TRAIL_ACT_R}R")
                         else:
                             # Posisi belum terbuka — cek apakah order masih ada di Bybit
                             oid = setup.get('order_id')
