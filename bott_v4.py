@@ -1075,50 +1075,48 @@ def run_bot():
                             # Recalc dist dari actual fill price
                             actual_dist = abs(actual_entry - sl_p)
                             min_dist    = actual_entry * 0.002
-                            sl_adjusted = False
                             if actual_dist < min_dist:
                                 actual_dist = min_dist
                                 sl_p = actual_entry - actual_dist if side_order == "Buy" \
                                        else actual_entry + actual_dist
-                                sl_adjusted = True
                                 print(f"⚠️ {coin}: Fill {actual_entry:.6f} vs OCL "
                                       f"{entry_p:.6f} — SL diperlebar ke {sl_p:.6f}")
 
-                            trail_d = TRAIL_STOP * actual_dist
+                            trail_d  = TRAIL_STOP * actual_dist
+                            info     = get_instrument_info(coin)
+                            tick     = info.get('tick_size', 0.0001)
+                            sl_r     = round_price(sl_p, tick)
+                            trail_r  = round_price(trail_d, tick)
+                            active_p = round_price(
+                                actual_entry + TRAIL_ACT_R * actual_dist if side_order == "Buy"
+                                else actual_entry - TRAIL_ACT_R * actual_dist, tick)
 
-                            # Trail sudah dipasang saat place_limit_order.
-                            # Hanya update SL via set_trading_stop jika SL perlu disesuaikan.
-                            trail_set_ok = True  # anggap trail sudah aktif dari order
-                            if sl_adjusted:
-                                info = get_instrument_info(coin)
-                                tick = info.get('tick_size', 0.0001)
-                                sl_r = round_price(sl_p, tick)
-                                active_p = round_price(
-                                    actual_entry + TRAIL_ACT_R * actual_dist if side_order == "Buy"
-                                    else actual_entry - TRAIL_ACT_R * actual_dist, tick)
-                                trail_r = round_price(trail_d, tick)
-                                for _attempt in range(3):
-                                    try:
-                                        res_ts = session.set_trading_stop(
-                                            category=CATEGORY, symbol=coin,
-                                            stopLoss=str(sl_r),
-                                            trailingStop=str(trail_r),
-                                            activePrice=str(active_p),
-                                            positionIdx=0
-                                        )
-                                        if res_ts.get('retCode', -1) == 0:
-                                            print(f"🛡️  {coin}: SL adjusted={sl_r} Trail={trail_r} "
-                                                  f"activePrice={active_p} dipasang")
-                                            break
-                                        else:
-                                            print(f"⚠️ {coin}: set_trading_stop gagal (attempt {_attempt+1}): "
-                                                  f"{res_ts.get('retMsg','')} (code:{res_ts.get('retCode')})")
-                                            trail_set_ok = False
-                                            time.sleep(2)
-                                    except Exception as e:
-                                        print(f"⚠️ {coin}: set_trading_stop error: {e}")
-                                        trail_set_ok = False
+                            # Selalu panggil set_trading_stop saat fill — Bybit tidak honor
+                            # trailingStop/activePrice pada limit order yang belum terisi.
+                            trail_set_ok = False
+                            for _attempt in range(3):
+                                try:
+                                    res_ts = session.set_trading_stop(
+                                        category=CATEGORY, symbol=coin,
+                                        stopLoss=str(sl_r),
+                                        trailingStop=str(trail_r),
+                                        activePrice=str(active_p),
+                                        positionIdx=0
+                                    )
+                                    if res_ts.get('retCode', -1) == 0:
+                                        trail_set_ok = True
+                                        print(f"🛡️  {coin}: SL={sl_r} Trail={trail_r} "
+                                              f"activePrice={active_p} (+{TRAIL_ACT_R}R) dipasang")
+                                        break
+                                    else:
+                                        print(f"⚠️ {coin}: set_trading_stop gagal (attempt {_attempt+1}): "
+                                              f"{res_ts.get('retMsg','')} (code:{res_ts.get('retCode')})")
                                         time.sleep(2)
+                                except Exception as e:
+                                    print(f"⚠️ {coin}: set_trading_stop error (attempt {_attempt+1}): {e}")
+                                    time.sleep(2)
+                            if not trail_set_ok:
+                                print(f"⚠️ {coin}: Trail gagal — retry di M5 berikutnya")
                             active_positions[coin] = {
                                 'side'          : side_order,
                                 'entry'         : actual_entry,
