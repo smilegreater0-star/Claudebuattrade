@@ -50,11 +50,6 @@ FILES = {
         '1000PEPEUSDT_5m_01-06-2025~30-09-2025.txt',
         '1000PEPEUSDT_5m_01-10-2025~31-12-2025.txt',
     ],
-    'BELUSDT'      : [
-        'BELUSDT_5m_01-01-2025~31-05-2025.txt',
-        'BELUSDT_5m_01-06-2025~30-09-2025.txt',
-        'BELUSDT_5m_01-10-2025~31-12-2025.txt',
-    ],
     'DOGEUSDT'     : [
         'DOGEUSDT_5m_01-01-2025~31-05-2025.txt',
         'DOGEUSDT_5m_01-06-2025~30-09-2025.txt',
@@ -103,7 +98,6 @@ UPLOAD_DIR = "/mnt/user-data/uploads"
 ATR_THRESHOLD = {
     # ATR P25 dari backtest fvg_sbr Jan2025–Apr2026
     'XVGUSDT'       : 0.0028,   # P25=0.283%
-    'BELUSDT'       : 0.0021,   # P25=0.214%
     '1000BONKUSDT'  : 0.0031,   # P25=0.308%
     'BERAUSDT'      : 0.0031,   # P25=0.305%
     '1000PEPEUSDT'  : 0.0029,   # P25=0.292%
@@ -1072,16 +1066,17 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
             if gap_size <= 0 or c1_close <= 0:
                 c_dir_fail += 1; i += 12; continue
 
-            # Entry di OCL (c1_close), SL di 76% range c1 dari OCL ke ujung bawah/atas
+            # Entry di OCL (c1_close), SL di c1_mid
+            c1_mid_v = (c1_high + c1_low) / 2
             if stype == "Long":
                 entry_limit = c1_close
-                d           = 0.76 * max(c1_close - c1_low, 0.0)
+                d           = max(c1_close - c1_mid_v, 0.0)
                 sl_nat      = c1_close - d
                 if d <= 0: c_dir_fail += 1; i += 12; continue
                 d_trail     = d
             else:
                 entry_limit = c1_close
-                d           = 0.76 * max(c1_high - c1_close, 0.0)
+                d           = max(c1_mid_v - c1_close, 0.0)
                 sl_nat      = c1_close + d
                 if d <= 0: c_dir_fail += 1; i += 12; continue
                 d_trail     = d
@@ -1719,11 +1714,12 @@ def _bt_conc_detect_bos(state: dict, active_slots: set,
     c1_l = float(chosen['c1_low'])
     c1_h = float(chosen['c1_high'])
 
-    # SL di 76% range c1 dari OCL ke ujung bawah (Long) / atas (Short)
+    # SL di c1_mid
+    c1_mid_v = (c1_h + c1_l) / 2
     if stype == 'Long':
-        dist = 0.76 * max(c1_c - c1_l, 0.0)
+        dist = max(c1_c - c1_mid_v, 0.0)
     else:
-        dist = 0.76 * max(c1_h - c1_c, 0.0)
+        dist = max(c1_mid_v - c1_c, 0.0)
     d_trail    = dist
     sl_pending = c1_c - dist if stype == 'Long' else c1_c + dist
 
