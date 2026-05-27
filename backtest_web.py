@@ -28,7 +28,7 @@ _TP_MULT       = float(os.environ.get('TP_MULT',       '18.6'))
 _ENTRY_R       = float(os.environ.get('ENTRY_R',       '9.5'))
 _TOUCH_VOL_MIN = float(os.environ.get('TOUCH_VOL_MIN', '0.8'))    # min vol ratio at SBR/OCL touch
 _MAX_GAP_PCT   = float(os.environ.get('MAX_GAP_PCT',   '0.006'))  # max gap_size/price — FVG ≤0.60% dari harga
-_TRAIL_STOP    = float(os.environ.get('TRAIL_STOP',    '0.15'))   # trail 0.15×dist (tight), reverse 2×
+_TRAIL_STOP    = float(os.environ.get('TRAIL_STOP',    '1.0'))    # trail 1.0×dist
 _MIN_DIST_PCT  = float(os.environ.get('MIN_DIST_PCT',  '0.002'))  # min SL distance = 0.2% dari price
 bt.ENTRY_MODE    = _ENTRY_MODE
 bt.SL_MULT       = _SL_MULT
