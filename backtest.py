@@ -1485,91 +1485,7 @@ def backtest_coin(symbol, df_m5_full, initial_balance, _fvg_events=None):
             'sl_choch'       : sl_choch,
             'mae_r'          : round(mae_r, 2),
             'mfe_r'          : round(mfe_r, 2),
-            'is_reverse'     : False,
         })
-
-        # ════════════════════════════════════════════════════════
-        # Reverse posisi saat SL kena — max 2 kali (fvg_strong + trailing stop)
-        # Long → SL → Short (rev1) → SL → Long (rev2)
-        # Kondisi: immediate SL (no float) ATAU trailing SL di BE+
-        # ════════════════════════════════════════════════════════
-        if TRAIL_STOP > 0 and ENTRY_MODE in ('fvg_strong', 'fvg_sbr', 'fvg_50pct', 'fvg_limit'):
-            _r_outcome  = outcome
-            _r_extra    = _extra
-            _r_exit_p   = exit_p
-            _r_dist     = _dist
-            _r_type     = _trade_stype
-            _r_until    = in_trade_until_idx
-
-            for _rev_n in range(2):
-                _imm_sl    = _r_outcome == 'sl' and _r_extra.get('max_float_r', 1.0) < 0.1
-                _trail_hit = _r_extra.get('trail_engaged', False)
-                if not (_imm_sl or _trail_hit):
-                    break
-
-                _rev_type     = "Short" if _r_type == "Long" else "Long"
-                _rev_entry    = _r_exit_p
-                _rev_dist     = _r_dist
-                _rev_open_idx = _r_until
-                _rev_open_ts  = df_m5_full.iloc[_rev_open_idx]['ts'] \
-                                if _rev_open_idx < total else None
-                if _rev_type == "Long":
-                    _rev_sl = _rev_entry - _rev_dist
-                    _rev_tp = _rev_entry + 1000 * _rev_dist
-                else:
-                    _rev_sl = _rev_entry + _rev_dist
-                    _rev_tp = _rev_entry - 1000 * _rev_dist
-
-                _rev_extra = {}
-                rev_pnl, rev_outcome, rev_exit_p, rev_exit_ts = simulate_trade(
-                    df_m5_full, _rev_open_idx, _rev_entry, _rev_sl, _rev_tp,
-                    _rev_type, balance, _skip_reasons=c_simskip_reasons, _extra_out=_rev_extra
-                )
-                if rev_outcome == 'skip':
-                    break
-
-                balance += rev_pnl
-                if rev_exit_ts is not None:
-                    rev_rows = df_m5_full[df_m5_full['ts'] == rev_exit_ts].index
-                    in_trade_until_idx = int(rev_rows[0]) if len(rev_rows) \
-                                         else _rev_open_idx + 300
-                else:
-                    in_trade_until_idx = _rev_open_idx + 300
-
-                _rev_reason = f"rev{_rev_n+1}_{'imm' if _imm_sl else 'trail'}"
-                trades.append({
-                    'symbol'         : symbol,
-                    'type'           : _rev_type,
-                    'setup_type'     : f'Reverse{_rev_n+1}',
-                    'entry_ts'       : _rev_open_ts,
-                    'exit_ts'        : rev_exit_ts,
-                    'entry'          : round(_rev_entry, 8),
-                    'sl'             : round(_rev_sl, 8),
-                    'tp'             : round(_rev_tp, 8),
-                    'exit_price'     : round(rev_exit_p, 8),
-                    'outcome'        : rev_outcome,
-                    'pnl_usd'        : round(rev_pnl, 4),
-                    'balance'        : round(balance, 4),
-                    'trigger'        : _rev_reason,
-                    'idm_depth'      : 0,
-                    'mss_body_ratio' : 0.0,
-                    'vol_ratio'      : _vol_ratio,
-                    'atr_ratio'      : _atr_ratio,
-                    'touch_vol_ratio': _touch_vol_ratio,
-                    'sl_dist_pct'    : round(_rev_dist / _rev_entry, 6) if _rev_entry > 0 else 0.0,
-                    'sl_then_tp'     : False,
-                    'sl_choch'       : False,
-                    'mae_r'          : 0.0,
-                    'mfe_r'          : 0.0,
-                    'is_reverse'     : True,
-                })
-
-                # siapkan iterasi berikutnya
-                _r_outcome = rev_outcome
-                _r_extra   = _rev_extra
-                _r_exit_p  = rev_exit_p
-                _r_type    = _rev_type
-                _r_until   = in_trade_until_idx
 
         i = in_trade_until_idx + 1
 
@@ -1920,7 +1836,6 @@ def backtest_concurrent(coins_data: dict,
                 balance = max(0.0, balance + pnl_usd)
                 entry   = trade['entry']
                 stype   = trade['stype']
-                rev_count = trade.get('rev_count', 0)
                 all_trades.append({
                     'symbol'    : sym,
                     'type'      : stype,
@@ -1936,41 +1851,13 @@ def backtest_concurrent(coins_data: dict,
                     'balance'   : round(balance, 4),
                     'dist'      : trade['dist'],
                     'slot_skip' : False,
-                    'rev_count' : rev_count,
                 })
-                if outcome == 'sl' and rev_count < 2:
-                    # Buka reverse trade — slot tetap aktif
-                    rev_stype  = 'Short' if stype == 'Long' else 'Long'
-                    rev_entry  = exit_p
-                    rev_dist   = trade['dist']
-                    rev_sl     = rev_entry + rev_dist if rev_stype == 'Short' else rev_entry - rev_dist
-                    rev_tp     = rev_entry - 1000 * rev_dist if rev_stype == 'Short' else rev_entry + 1000 * rev_dist
-                    _rev_fee   = 2 * TAKER_FEE * rev_entry * (balance * RISK_PCT) / rev_dist if rev_dist > 0 else 0.0
-                    state['trade'] = {
-                        'entry'         : rev_entry,
-                        'sl_orig'       : rev_sl,
-                        'trail_sl'      : rev_sl,
-                        'peak'          : rev_entry,
-                        'tp'            : rev_tp,
-                        'dist'          : rev_dist,
-                        'd_trail'       : rev_dist,
-                        'stype'         : rev_stype,
-                        'entry_ts'      : ts,
-                        'done_key'      : trade.get('done_key'),
-                        'trail_no_move' : 0,
-                        'trail_prev_sl' : rev_sl,
-                        'rev_count'     : rev_count + 1,
-                        'orig_ocl'      : trade.get('orig_ocl', trade['entry']),
-                        'fee_usd'       : _rev_fee,
-                    }
-                    # Slot tetap di active_slots (tidak discard)
-                else:
-                    active_slots.discard(sym)
-                    state['done_bos'] = {
-                        'bos_key' : trade.get('done_key'),
-                        'used_ocl': trade.get('orig_ocl', trade['entry']),
-                    }
-                    state['trade'] = None
+                active_slots.discard(sym)
+                state['done_bos'] = {
+                    'bos_key' : trade.get('done_key'),
+                    'used_ocl': trade.get('orig_ocl', trade['entry']),
+                }
+                state['trade'] = None
 
         # ── 2. Pending setup handling ─────────────────────────────────────
         elif state['pending'] is not None:
